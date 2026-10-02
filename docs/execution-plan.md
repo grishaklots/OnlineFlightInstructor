@@ -23,6 +23,8 @@ Give the coding agent **one numbered task at a time**. Do not ask it to implemen
 
 The owner performs dashboard/account actions marked **OWNER**. The coding agent performs repository/code work marked **AGENT**.
 
+For the landing-slot tool, preserve the current `landing-slots.html` behavior documented in `docs/product-brief.md` and `docs/poc-analysis.md`: monthly student-first greedy computation, total monthly upvotes for ties, earliest preferred slot, automatic preservation of every manual assignment, and immediate application. Do not add a separate landing-window lifecycle, assignment lock/unlock state, or preview/commit workflow to the MVP. Authentication, student records, the portal, and hosted persistence remain planned extensions.
+
 ---
 
 # Phase 0 — Understand the Existing POC
@@ -55,9 +57,9 @@ Do not modify the POC.
 **Done when:** every significant function and localStorage structure is documented.
 
 ## Task 0.3 — Capture POC allocation fixtures
-**AGENT:** Create JSON fixtures for: empty cases, one student/slot, competition for one slot, multiple preferences, unequal assignment counts/options, manual assignments, recalculation, clearing assignments without preferences, and tie cases.
+**AGENT:** Create JSON fixtures for: empty cases, one student/slot, competition for one slot, multiple preferences, unequal assignment counts/total monthly upvotes, manual assignments with/without upvotes, recalculation, single/all-month clearing while retaining preferences, and student-ID/slot-ID tie cases. Include other-month isolation, occupied preferences still contributing to the tie-break count, the greedy equity limitation, preference removal retaining an existing assignment, and incomplete end-time rejection/legacy migration.
 
-**Done when:** important POC behavior has explicit inputs and expected outputs; nondeterminism is documented.
+**Done when:** important POC behavior has explicit inputs and expected outputs; identical IDs/input produce identical results, and changes caused by regenerating random IDs are documented. Do not encode a remaining-options or constrained-slot policy.
 
 ## Task 0.4 — Record architecture decisions
 **AGENT:** Create `docs/architecture.md`: React/Vite; FastAPI; Supabase PostgreSQL/Auth; SQLAlchemy/Alembic; Vercel; Render; JWT validation in API; opaque student links; REST; pure Python allocator. Explicitly reject localStorage as persistence, SQLite as primary DB, frontend service-role credentials, direct browser application-table writes, and trusting client instructor IDs.
@@ -237,7 +239,7 @@ List/search/sort/get/create/update/permanently delete. Enforce instructor owners
 List/search/sort/add/edit/delete, loading/error/empty states. API-backed only.
 
 ## Task 5.4 — Permanent deletion workflow
-Explicit irreversible confirmation. Transactionally handle sessions, log entries, access tokens, preferences, and future assignments. Deleted links stop functioning.
+Explicit irreversible confirmation. Transactionally handle sessions, log entries, access tokens, preferences, and assignments across all months, including manual assignments. Released-slot status reflects remaining demand. Deleted links stop functioning.
 
 ---
 
@@ -263,7 +265,7 @@ Reverse chronological management from student details.
 Cryptographically secure opaque tokens; store only hash. Generate/status/revoke/regenerate endpoints. Raw token returned only at creation; revocation immediate.
 
 ## Task 7.2 — Public student read API
-Explicit public schemas only: permitted profile, student-visible sessions, flight log, available landing slots, own assignments. Never serialize ORM entities directly or expose instructor-private notes/other students.
+Explicit public schemas only: permitted profile, student-visible sessions, flight log, instructor's exposed landing-slot details (including Requested/Allocated slots), own assignments. Never serialize ORM entities directly or expose instructor-private notes/other students' identities, preferences, or assignments.
 
 ## Task 7.3 — Student portal UI
 Responsive portal without instructor authentication. History/log/landing preferences/assignments; no instructor/admin navigation; discourage search indexing.
@@ -273,29 +275,29 @@ Rate limiting, safe cache/referrer policies, token/log redaction, safe errors.
 
 ---
 
-# Phase 8 — Landing Windows and Slots
+# Phase 8 — Monthly Landing Slots
 
 ## Task 8.1 — Models
-LandingWindow: instructor, name/description, dates, Draft/Open/Allocated/Closed. LandingSlot: instructor/window, start/end, location/runway/notes, availability, concurrency version. Enforce same ownership.
+LandingSlot: instructor, local start/end, required airport/runway label, concurrency version. Model assignment separately; derive Available/Requested/Allocated from assignment and upvotes, not a window lifecycle. Enforce ownership and uniqueness of start plus normalized airport/runway. Support explicitly incomplete legacy end times without allowing new incomplete slots. No separate LandingWindow entity.
 
-## Task 8.2 — Landing-window API
-Owned list/get/create/update/status/delete; validate dates/dependencies.
+## Task 8.2 — Monthly workspace queries
+Owned month-scoped slot listing and all-roster student data; month navigation supported from January 2000 through December 2099. No window selector/status endpoints. Define the hosted timezone interpretation of POC local wall times explicitly; do not silently convert legacy times.
 
 ## Task 8.3 — Landing-slot API
-Owned CRUD; validate times; deletion impact; concurrency conflicts return 409.
+Owned create/get/delete and incomplete-end-time repair. Require valid same-day end-after-start ranges and normalized airport/runway; reject duplicate start/runway. Do not add overlap avoidance or overnight support. Confirmed deletion removes assignments and associated preferences transactionally; concurrency conflicts return 409.
 
 ## Task 8.4 — Calendar shell
-Window selector/status, monthly calendar, create/edit slot, details panel; desktop/mobile states. No allocation yet.
+Monthly calendar with previous/next/Today, create-slot form using DD/MM/YYYY and 24-hour From/To, one-hour editable end-time proposal, details panel, incomplete-slot repair and deletion; desktop/mobile states. Adding a slot selects its month. No general slot editor, window selector/status, or allocation yet.
 
 ---
 
 # Phase 9 — Migrate POC Interactions
 
 ## Task 9.1 — Map POC UI concepts
-Using `landing-slots.html` and `poc-analysis.md`, map slot cards, chips, calendar indicators, matrix, metrics/warnings to React. Do not port localStorage persistence or known defects.
+Using `landing-slots.html` and `poc-analysis.md`, map slot cards, chips, calendar indicators, matrix, metrics/warnings, force-control switch, and single/all-month clearing to React. Preserve specified greedy behavior and independent upvotes/assignments, including the documented limitations. Do not port localStorage persistence, races, or success notifications for failed saves. The POC's local JSON backup/replacement/reset workflows are documented reference behavior; hosted data-transfer/backup UI remains post-MVP.
 
 ## Task 9.2 — Slot cards/student chips
-Accessible typed React components; selected/assigned/unavailable states; keyboard operation.
+Accessible typed React components; independent upvoted/assigned states, Available/Requested/Allocated statuses, manual distinction and incomplete-end-time indicator; keyboard operation. Dimmed manual-override chips remain editable.
 
 ## Task 9.3 — Preference matrix
 Read-only student rows × slot columns showing preference, assignment, and manual override; scrolling and legend.
@@ -311,76 +313,77 @@ Instructor/student/slot/source (Instructor or Student), timestamps, unique stude
 Idempotent add/remove/bulk replacement. Reject foreign student IDs. React chips persist through API; failures restore/invalidate optimistic state. Removing preference must not silently remove assignment.
 
 ## Task 10.3 — Student preference API/UI
-Student-link holder can alter only their own preferences in open windows. No arbitrary student ID, hidden/closed slot mutation, or visibility of other students' preferences.
+Student-link holder can alter only their own preferences for their instructor's exposed slots. No arbitrary student ID, foreign-instructor slot mutation, or visibility of other students' preferences. Preserve the baseline's absence of open/closed-window and past-date restrictions; editing preferences does not silently change assignments.
 
 ---
 
 # Phase 11 — Allocation Engine
 
 ## Task 11.1 — Pure Python allocation contracts
-Framework-independent domain objects for students, slots, preferences, existing/locked assignments, proposals, warnings, explanations.
+Framework-independent domain objects for students, local-time slots, preferences, existing assignments with automatic/manual source, target month, and calculated assignments/counts. No independent lock field, pending proposal, or per-assignment explanation requirement.
 
 ## Task 11.2 — Reproduce POC algorithm first
-Use POC fixtures to port current behavior into pure Python. No browser/database/network/framework dependency. Document differences.
+Use POC fixtures to port current behavior into pure Python. No browser/database/network/framework dependency. Preserve the specified behavior; document representation/timezone differences, not a replacement fairness policy.
 
-## Task 11.3 — Implement target fairness policy
-1. Preserve locked manual assignments.
-2. Exclude their occupied slots.
-3. Process slots with fewest eligible interested students first.
-4. Prefer students with fewer assignments.
-5. Then fewer remaining preferred options.
-6. Stable deterministic tie-breaker.
-7. Return explanations/warnings.
+## Task 11.3 — Verify monthly policy parity
+1. Reject computation if any slot in the target month lacks a valid end time.
+2. Preserve all manual assignments in that month and count them; reset that month's automatic assignments only.
+3. Select students with an unassigned upvoted slot in the month.
+4. Prioritize fewer current-month assignments, then fewer total monthly upvotes (including occupied preferences), then ascending stable student ID.
+5. Assign the selected student's earliest unassigned preferred slot by local start time, then ascending stable slot ID.
+6. Repeat until no eligible demand remains. Leave other months unchanged and exclude them from priority counts.
 
-Automatic assignment requires preference; at most one student per slot; identical input yields identical output.
+New automatic assignment requires preference; at most one student per slot; identical IDs/input/month yield identical output. Existing automatic assignments can lack a current upvote until recomputation. Use POC-compatible non-locale ID ordering; do not sort slots by constraint count or dynamically count remaining preferred options. No quota, historical weighting, overlap check, or globally optimal equity guarantee.
+
+**Done when:** all allocation fixtures match the POC, including manual nonvoters and the greedy equity limitation; there is no second target allocator with different rules.
 
 ## Task 11.4 — Comprehensive unit tests
-Cover empty/full/over/under-subscribed cases, equal/unequal allocations, scarce preferences, locks, overrides, ties, inactive students, multiple slots/student, shared demand.
+Cover empty/full/over/under-subscribed cases, equal/unequal allocations, total-preference tie-breaking, manual overrides with/without preferences, ties, students without preferences, multiple slots/student, shared demand, other-month isolation, incomplete slots, and greedy equity limitations.
 
 ## Task 11.5 — Property tests
-Use Hypothesis: max one assignment/slot; automatic assignment implies preference; locks unchanged; valid references; deterministic; input not mutated.
+Use Hypothesis: max one assignment/slot; newly computed automatic assignments imply preferences; every manual assignment is unchanged; other-month state is unchanged; valid references; deterministic for identical IDs/input/month; input not mutated.
 
 ---
 
 # Phase 12 — Allocation API and Instructor Controls
 
-## Task 12.1 — Preview
-Load authoritative state; calculate without persistence; return retained/added/removed/changed, warnings, explanations, input revision.
+## Task 12.1 — Monthly calculation service
+Load an authoritative instructor-owned snapshot for the requested month and complete roster/preferences; invoke the pure allocator and retain a revision for conflict detection during persistence. Return calculated assignments/counts internally. This is part of one compute action, not a user-facing preview endpoint.
 
-## Task 12.2 — Atomic commit
-Landing-window ID + input revision + algorithm version + DB transaction + concurrency checks. Stale preview returns 409; no partial assignments; audit successful run.
+## Task 12.2 — Atomic compute API
+One request identifies month and expected workspace revision; calculate from authoritative state and persist within a transaction with concurrency checks. Changed inputs return 409; no partial assignments or success on failed persistence. Preserve all manual assignments and other-month state; record algorithm version/month and audit the applied run. No preview token or separate commit request.
 
 ## Task 12.3 — Manual assignment
-Assign any owned student regardless of preference; replace/clear/lock/unlock. Record overrides. Clearing assignment preserves preferences.
+Assign any owned student regardless of preference; replace or clear a single assignment. All manual assignments are implicitly preserved during computation; no lock/unlock endpoint. Require a complete end time to assign. Also provide confirmed all-month assignment clearing scoped to the instructor, including manual assignments. Both clear scopes retain students, slots, and preferences; record changes and reject stale writes.
 
-## Task 12.4 — Preview/manual UI
-Recalculate, compare, warnings/explanations, commit/cancel, stale handling; manual overrides visibly distinct and replacements confirmed.
+## Task 12.4 — Compute/manual UI
+Compute displayed month and immediately apply the saved response; busy state, result/manual-preservation counts, conflict refresh/retry, explicit errors. No compare/commit/cancel stage. Manual overrides visibly distinct; Enable force assignment changes editing controls only, not stored assignment preservation. Single-slot replacement/clearing is direct; all-month clearing requires explicit scope/count confirmation and retains upvotes.
 
 ---
 
 # Phase 13 — Metrics and Warnings
 
 ## Task 13.1 — Metrics
-Total/assigned slots, utilization, preferences per slot, assignments per student, interested students with no assignment, manual unrequested assignments. Test empty data.
+Reproduce monthly total/unassigned/assigned slots, manual/automatic breakdown, whole-percentage utilization, preferences per slot/total, and per-student preferences/assignments/manual counts. Average uses every roster student. Unassigned includes Requested and incomplete slots; manual assignments may exceed upvotes. Test empty data and POC-compatible percentage rounding.
 
 ## Task 13.2 — Limited-preference warnings
-Configurable warning rules, kept separate from allocation decision logic.
+Preserve POC formulas separately from allocation decision logic: underallocated means zero assignments or below monthly average; low coverage means preferences below ceil(total monthly slots / roster size). With slots present, underallocated students receive Coverage if low coverage, otherwise Unfulfilled. No slots means no alerts; no students means zero average/coverage alerts. Coverage-alert count excludes Unfulfilled; zero-assignment Coverage receives the Critical label. No configurable policy in the MVP.
 
 ## Task 13.3 — Dashboard
-Display utilization, per-student totals, demand, unmet demand, limited coverage, overrides. Explain metrics via labels/tooltips and do not rely only on color.
+Display the POC's four cards (unassigned slots, assigned slots, efficiency, Coverage alerts), student-equity roster, per-slot demand, and independent preference/assignment indicators, including manual nonvoters. Explain scope and heuristic warnings via labels/tooltips; show incomplete end-time warnings and do not rely only on color.
 
 ---
 
 # Phase 14 — Security, Audit, Reliability
 
 ## Task 14.1 — Audit events
-Audit instructor administration, student-link lifecycle, student deletion, manual assignment changes, allocation commits, window closure/reopening. Store actor/action/target/time but no sensitive note contents.
+Audit instructor administration, student-link lifecycle, student/slot deletion, manual assignment changes, single/all-month assignment clearing, and applied monthly allocation runs. Store actor/action/target/time but no sensitive note contents.
 
 ## Task 14.2 — Optimistic concurrency
-Apply where necessary to students/sessions/windows/slots/preferences/assignments; return 409 and support refresh/retry.
+Apply where necessary to students/sessions/slots/preferences/assignments and the monthly compute snapshot, including roster changes; return 409 and support refresh/retry.
 
 ## Task 14.3 — Security tests
-Cross-instructor IDs, forged object IDs/instructor IDs, suspension, admin isolation, expired/revoked student links, closed-window writes, error leakage.
+Cross-instructor IDs, forged object IDs/instructor IDs, suspension, admin isolation, expired/revoked student links, foreign-slot preference writes, unauthorized compute/all-month clearing, error leakage.
 
 ## Task 14.4 — Logging/redaction
 Safe correlation/actor/operation/result/duration; never log passwords, JWTs, student tokens, birth dates, notes/comments, DB/service credentials or complete sensitive request bodies.
@@ -390,13 +393,13 @@ Safe correlation/actor/operation/result/duration; never log passwords, JWTs, stu
 # Phase 15 — End-to-End Testing
 
 ## Task 15.1 — Development seed
-Deterministic development-only admin, two instructors, students, session types, flight entries, window/slots/preferences/manual lock. Must not accidentally run in production.
+Deterministic development-only admin, two instructors, students, session types, flight entries, multiple months of slots/preferences/manual assignments. Must not accidentally run in production.
 
 ## Task 15.2 — Instructor E2E
-Login → student → session → log → window → slots → preferences → preview → commit → manual override → recalculate preserving lock → clear assignment retaining preferences.
+Login → student → session → log → monthly slots → preferences → compute/apply → manual override → recalculate preserving every manual assignment → clear one assignment retaining preferences → confirmed all-month clear retaining upvotes. Verify other-month isolation, control-switch semantics, and computation/persistence failure feedback.
 
 ## Task 15.3 — Student E2E
-Valid link → permitted records → add/remove preference → assignment → revoked link rejected → closed-window modification rejected. Never expose private/other-student data.
+Valid link → permitted records → add/remove preference without silently changing assignments → current assignment → revoked link rejected; foreign-student/instructor slot access rejected. Never expose private/other-student data.
 
 ## Task 15.4 — Admin E2E
 Create → suspend → verify rejection → reactivate → delete; normal instructor cannot access admin surface.
@@ -417,7 +420,7 @@ Create/configure production backend with production Supabase values, CORS, healt
 Set production frontend variables specifically to production Render + production Supabase. Preview must remain on development services.
 
 ## Task 16.4 — Production smoke test
-Verify admin lifecycle, login, student/session/log CRUD, link lifecycle, instructor/student preferences, preview/commit, manual-lock preservation, UI responsiveness, audit/errors.
+Verify admin lifecycle, login, student/session/log CRUD, link lifecycle, instructor/student preferences, immediate monthly compute, all-manual preservation, single/all-month clearing retaining upvotes, UI responsiveness, audit/errors.
 
 ---
 
@@ -425,6 +428,11 @@ Verify admin lifecycle, login, student/session/log CRUD, link lifecycle, instruc
 
 Do not implement until MVP is stable:
 - Historical fairness.
+- Alternative constrained-slot/remaining-options allocation policies.
+- Separate multi-slot landing windows and open/closed preference periods.
+- Independent manual assignment lock/unlock.
+- Allocation preview/compare/commit UI and per-assignment explanations.
+- Configurable coverage-warning policies.
 - Per-student slot maximums.
 - Weighted/ranked preferences.
 - Bulk slot import.
@@ -438,39 +446,41 @@ Do not implement until MVP is stable:
 - Offline support.
 - Backup/restore UI.
 
+The POC's local workspace JSON import/export already exists; hosted data export/backup/restore is a separate feature, not authorization to replace full student records from a name-only POC file.
+
 ---
 
 # Immediate Next Steps
 
 Given the current state, do **only these next**:
 
-1. Put `product-brief.md`, this `execution-plan.md`, and `landing-slots.html` in the Git repository.
-2. Give the coding agent **Task 0.2** only.
-3. After the POC analysis, complete Tasks 0.3 and 0.4.
-4. Then run Tasks 1.1 and 1.2 to reach the first technical milestone:
+1. The three original inputs are already committed, and `docs/poc-analysis.md` has been created for Task 0.2.
+2. Give the coding agent **Task 0.3** only, then complete Task 0.4 separately.
+3. Then run Tasks 1.1 and 1.2 to reach the first technical milestone:
 
 ```text
 local React --> local FastAPI /health
 ```
 
-5. Only after that, start Phase 2 and connect the Supabase project you already created.
-6. Do not configure Vercel/Render projects until the local skeleton is working.
+4. Only after that, start Phase 2 and connect the Supabase project you already created.
+5. Do not configure Vercel/Render projects until the local skeleton is working.
 
-## First coding-agent prompt
+## Next coding-agent prompt
 
 ```markdown
-Implement Task 0.2 from `docs/execution-plan.md`.
+Implement Task 0.3 from `docs/execution-plan.md`.
 
 Read:
 - `docs/product-brief.md`
 - `docs/execution-plan.md`
+- `docs/poc-analysis.md`
 - `landing-slots.html`
 
-Analyze the existing landing-slot POC and create `docs/poc-analysis.md` as required by Task 0.2.
+Capture representative JSON inputs and expected outputs from the unchanged POC as required by Task 0.3.
 
 Do not modify `landing-slots.html` and do not implement the new application yet.
 
-Before finishing, verify that you documented all significant JavaScript functions, data structures, localStorage keys, allocation behavior, manual assignment/recalculation behavior, UI concepts worth preserving, defects, assumptions, and migration risks.
+Before finishing, verify fixture outputs against the actual POC. Cover total monthly upvote and stable-ID ties, earliest-slot selection, manual preservation, other-month isolation, clearing without deleting preferences, preference removal without immediate assignment changes, and incomplete end-time behavior. Document the greedy equity limitation and random-ID recreation effects; do not substitute a different fairness policy.
 
 Report files changed, key findings, assumptions, and unresolved questions.
 ```
