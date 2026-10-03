@@ -30,12 +30,13 @@ sessions, explicit transactions, and an empty Alembic baseline.
 Task 1.4 adds GitHub Actions CI for both applications.
 Task 2.1 adds safe frontend/backend environment templates.
 Task 2.2 implements frontend Supabase email/password authentication.
+Task 2.3 adds trusted-JWKS JWT verification and protected `GET /api/me`.
 `/login` is functional; `/students`, `/students/:studentId`, `/landing-slots`,
 `/admin`, and `/student/:token` remain product placeholders.
 `/` redirects to `/students`; signed-out instructors are redirected to `/login`.
 The student portal stays public.
 
-No backend JWT validation, student-data operations, application tables, or
+No student-data operations, application tables, or
 deployment is implemented yet. `GET /health` returns `{"status":"ok"}` for the running API
 process; it does not check a database or external service.
 
@@ -184,6 +185,7 @@ settings:
 | `DATABASE_URL` | Backend only; copy the PostgreSQL URL from Connect, replace its password locally, URL-encode reserved password characters, and preserve required TLS options. Use a direct connection when reachable; session pooling can serve IPv4-only local networks. Do not select transaction pooling for the current migration setup. |
 | `SUPABASE_JWT_ISSUER` | Backend; the project's Auth issuer, typically `<project-url>/auth/v1`. |
 | `SUPABASE_JWKS_URL` | Backend; the project's signing-key endpoint, typically `<project-url>/auth/v1/.well-known/jwks.json`. This is a URL, not a signing secret. |
+| `SUPABASE_JWT_AUDIENCE` | Backend; defaults to `authenticated` for Supabase Auth user tokens. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Backend only; the project's privileged `service_role` or secret API key, under the execution plan's variable name. Never copy it into a `VITE_` variable. |
 | `ALLOWED_ORIGINS`, `LOG_LEVEL` | Backend; the template supplies explicit local origins as a JSON array and `INFO`. |
 
@@ -195,13 +197,16 @@ frontend public key. Key rotation or signing-key migration is not part of this
 task.
 
 Vite automatically loads the frontend `.env.local` on restart; Task 2.2 consumes
-its public Supabase configuration. The backend
-template is a configuration inventory: automatic dotenv loading, consumption of
-the new Supabase/origin/logging settings, backend Auth integration, and DB connectivity
-checks are not implemented here. The current API still reads `DATABASE_URL` from
-its process environment and uses `FLIGHT_INSTRUCTOR_CORS_ORIGINS` for overrides.
-Do not load the incomplete backend template; its database URL is deliberately
-empty. The existing health-only setup continues to work without these files.
+its public Supabase configuration. The API loads `apps\api\.env` on restart;
+process environment settings take precedence. `SUPABASE_URL` derives the trusted
+JWT issuer/JWKS URLs when explicit overrides are omitted. Remove blank optional
+lines from the template. `ALLOWED_ORIGINS` supplies CORS origins, with
+`FLIGHT_INSTRUCTOR_CORS_ORIGINS` kept as a legacy alias. The protected `/api/me`
+checks ES256/RS256 user tokens and returns their validated subject UUID; no
+privileged API key is needed. See [backend JWT details](apps/api/README.md#jwt-verification).
+Database health checks and consumption of `LOG_LEVEL` remain later work.
+Alembic still reads `DATABASE_URL` from process environment only.
+The public health endpoint continues to work without Supabase configuration.
 
 Both local files (and `.env.*` variants) are ignored by Git; only `.env.example`
 templates are intended to be tracked. Completion of the owner portion requires

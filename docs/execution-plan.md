@@ -148,6 +148,12 @@ Keep its credentials out of Git and frontend bundles; do not add a built-in logi
 
 **Done when:** no token/invalid token returns 401; valid token succeeds; client-supplied user ID is never trusted.
 
+Implementation: protected `/api/me` returns only the validated Supabase subject UUID.
+Trusted ES256/RS256 JWKS verification checks issuer, audience, expiration, and
+the Auth user role; unavailable verification returns a sanitized 503.
+The API loads ignored backend `.env`, with process environment overrides.
+Instructor profiles/account-state authorization remain later schema work.
+
 ## Task 2.4 — Connect FastAPI to Supabase PostgreSQL
 **AGENT:** Configure DB access through environment settings. Extend health behavior to test DB connectivity without leaking credentials.
 

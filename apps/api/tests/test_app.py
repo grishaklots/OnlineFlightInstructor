@@ -2,16 +2,16 @@ import pytest
 from fastapi.testclient import TestClient
 from pytest import MonkeyPatch
 
-from app.main import app, create_app
+from app.main import create_app
 
 
 def test_application_starts_and_exposes_openapi() -> None:
-    with TestClient(app) as client:
+    with TestClient(create_app()) as client:
         response = client.get("/openapi.json")
 
     assert response.status_code == 200
     assert response.json()["info"]["title"] == "Flight Instructor API"
-    assert set(response.json()["paths"]) == {"/health"}
+    assert set(response.json()["paths"]) == {"/health", "/api/me"}
 
 
 def test_settings_are_used_by_application_factory(monkeypatch: MonkeyPatch) -> None:
@@ -20,11 +20,11 @@ def test_settings_are_used_by_application_factory(monkeypatch: MonkeyPatch) -> N
     application = create_app()
 
     assert application.title == "Test API"
-    assert application is not app
+    assert application is not create_app()
 
 
 def test_health_is_public_and_returns_process_status() -> None:
-    with TestClient(app) as client:
+    with TestClient(create_app()) as client:
         response = client.get("/health")
 
     assert response.status_code == 200
@@ -33,13 +33,13 @@ def test_health_is_public_and_returns_process_status() -> None:
 
 
 def test_product_endpoints_are_not_implemented() -> None:
-    with TestClient(app) as client:
+    with TestClient(create_app()) as client:
         assert client.get("/api/students").status_code == 404
 
 
 @pytest.mark.parametrize("origin", ["http://localhost:5173", "http://127.0.0.1:5173"])
 def test_local_frontend_can_read_health(origin: str) -> None:
-    with TestClient(app) as client:
+    with TestClient(create_app()) as client:
         response = client.get("/health", headers={"Origin": origin})
 
     assert response.status_code == 200
@@ -49,7 +49,7 @@ def test_local_frontend_can_read_health(origin: str) -> None:
 
 
 def test_unknown_origin_is_not_granted_cors_access() -> None:
-    with TestClient(app) as client:
+    with TestClient(create_app()) as client:
         response = client.get(
             "/health", headers={"Origin": "https://untrusted.example"}
         )
@@ -59,7 +59,7 @@ def test_unknown_origin_is_not_granted_cors_access() -> None:
 
 
 def test_health_get_preflight_succeeds() -> None:
-    with TestClient(app) as client:
+    with TestClient(create_app()) as client:
         response = client.options(
             "/health",
             headers={
@@ -74,7 +74,7 @@ def test_health_get_preflight_succeeds() -> None:
 
 
 def test_cors_rejects_unknown_origin_and_non_get_preflights() -> None:
-    with TestClient(app) as client:
+    with TestClient(create_app()) as client:
         for origin, method in [
             ("https://untrusted.example", "GET"),
             ("http://localhost:5173", "POST"),

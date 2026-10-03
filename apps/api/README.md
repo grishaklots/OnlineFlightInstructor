@@ -5,8 +5,9 @@ Pytest, Ruff, and strict mypy checks.
 `app.main:create_app` creates the application; `app.main:app` is the ASGI entry
 point. Task 1.2 adds public `GET /health` and explicit local-development CORS.
 Task 1.3 adds the PostgreSQL persistence foundation and a reversible, empty
-migration baseline. There are no application tables, authentication, or product
-endpoints yet. Health remains a process check and does not connect to a database.
+migration baseline. Task 2.3 verifies Supabase access JWTs for `GET /api/me`.
+There are no application tables or product endpoints yet. Health remains a
+process check and does not connect to a database.
 
 From this directory, create `.venv`, install `requirements-dev.txt`, install the
 editable package, and run Uvicorn using the commands in the repository README.
@@ -19,22 +20,50 @@ file, then populate it locally from the existing development Supabase project.
 Do not paste actual values into chat, commit them, or place backend secrets in
 the frontend. Keep database passwords URL-encoded in `DATABASE_URL`.
 
-The template prepares the later tasks; it does not implement Supabase clients,
-JWT verification, or database connectivity checks. Settings/Alembic still read
-process environment variables, not `.env` automatically. Do not load the blank
-template: an empty `DATABASE_URL` is not a usable connection URL.
-`SUPABASE_*`, `ALLOWED_ORIGINS`, and `LOG_LEVEL` are not consumed yet. Current CORS
-overrides still use `FLIGHT_INSTRUCTOR_CORS_ORIGINS`; the template does not change
-that behavior. See the repository README for the owner configuration checklist.
+The API loads `apps\api\.env` on restart, with process environment variables taking
+precedence. Remove unused blank optional settings rather than loading the blank
+template. `ALLOWED_ORIGINS` sets the explicit CORS origins; the old
+`FLIGHT_INSTRUCTOR_CORS_ORIGINS` alias remains supported. `LOG_LEVEL` is reserved
+for later configuration work. Alembic still reads process environment only.
+See the repository README for the owner configuration checklist.
+
+## JWT verification
+
+Send the signed-in user's access token as `Authorization: Bearer <access-token>`
+to `GET /api/me`. Missing/invalid tokens return 401 with `WWW-Authenticate: Bearer`.
+Success returns only `{"id":"<validated-sub-uuid>"}`. Query parameters, identity
+headers, and user metadata cannot override the identity. This is an authentication
+probe, not instructor-profile lookup, account-state checking, or product-data
+authorization; those need the later schema/ownership tasks.
+
+Set `SUPABASE_URL` to the trusted project URL. Issuer and JWKS URLs derive from
+that configuration, never from token claims or headers. Optional
+`SUPABASE_JWT_ISSUER` / `SUPABASE_JWKS_URL` override them; omit unset overrides.
+Remote Auth URLs require HTTPS (HTTP is allowed on loopback for local development).
+`SUPABASE_JWT_AUDIENCE` defaults to `authenticated`.
+
+PyJWT with cryptography validates ES256/RS256 signatures, required issuer,
+audience, expiration, and UUID subject; `nbf`/`iat` are checked when present.
+Only Auth user tokens with `role=authenticated` are accepted. HS256, unsigned
+tokens, API keys, and non-user roles are rejected. Legacy HS256 projects must
+migrate to a supported asymmetric signing key; there is no shared-secret or
+privileged-key fallback. No Supabase privileged API key is needed here.
+
+Trusted JWKS fetches have a five-second timeout, a five-minute cache, and a
+30-second unknown-key refresh cooldown. Rotation can take up to the cooldown
+to discover a newly published key; retired keys leave the cache after expiry.
+JWKS/configuration failures return sanitized 503 errors and log only a static
+diagnostic, not tokens, keys, endpoint responses, or connection values.
+The public `/health` remains independent of JWT verification.
 
 ## PostgreSQL configuration and migrations
 
 Set `DATABASE_URL` in the terminal running the API or Alembic. This unprefixed
-variable is optional for the current health-only application and required for
+variable is optional for the current application and required for
 migrations or any use of the database dependency. It accepts `postgresql://` or
 `postgresql+psycopg://`; both use psycopg 3. Other databases/drivers are rejected.
 Use URL-encoded credentials and the PostgreSQL server's required TLS options.
-Actual values must stay out of Git and chat. `.env` files are not loaded yet.
+Actual values must stay out of Git and chat. The API loads `.env`; Alembic does not yet.
 
 From `apps\api`, with a PostgreSQL database available, replace placeholders
 locally and run:
