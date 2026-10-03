@@ -11,6 +11,22 @@ endpoints yet. Health remains a process check and does not connect to a database
 From this directory, create `.venv`, install `requirements-dev.txt`, install the
 editable package, and run Uvicorn using the commands in the repository README.
 
+## Local configuration template
+
+Task 2.1 provides `.env.example` with empty project/credential values and public
+development defaults. Copy it to ignored `.env` without overwriting an existing
+file, then populate it locally from the existing development Supabase project.
+Do not paste actual values into chat, commit them, or place backend secrets in
+the frontend. Keep database passwords URL-encoded in `DATABASE_URL`.
+
+The template prepares the later tasks; it does not implement Supabase clients,
+JWT verification, or database connectivity checks. Settings/Alembic still read
+process environment variables, not `.env` automatically. Do not load the blank
+template: an empty `DATABASE_URL` is not a usable connection URL.
+`SUPABASE_*`, `ALLOWED_ORIGINS`, and `LOG_LEVEL` are not consumed yet. Current CORS
+overrides still use `FLIGHT_INSTRUCTOR_CORS_ORIGINS`; the template does not change
+that behavior. See the repository README for the owner configuration checklist.
+
 ## PostgreSQL configuration and migrations
 
 Set `DATABASE_URL` in the terminal running the API or Alembic. This unprefixed

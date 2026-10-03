@@ -27,11 +27,13 @@ supabase/    Reserved for later Supabase configuration
 Task 1.1 adds the application skeleton; Task 1.2 connects React to FastAPI locally
 with an unauthenticated health check; Task 1.3 adds SQLAlchemy, psycopg, scoped
 sessions, explicit transactions, and an empty Alembic baseline.
+Task 1.4 adds GitHub Actions CI for both applications.
+Task 2.1 adds safe frontend/backend environment templates.
 All six required frontend routes
 are placeholders: `/login`, `/students`, `/students/:studentId`, `/landing-slots`,
 `/admin`, and `/student/:token`. `/` redirects to `/students`.
 
-No authentication, student-data operations, application tables, CI, or deployment
+No authentication, student-data operations, application tables, or deployment
 is implemented yet. `GET /health` returns `{"status":"ok"}` for the running API
 process; it does not check a database or external service.
 
@@ -43,7 +45,9 @@ process; it does not check a database or external service.
 Run the following PowerShell commands from the repository root. Dependencies and
 build outputs are ignored by Git; `package-lock.json` and
 `apps\api\requirements-dev.txt` pin dependencies.
-No platform accounts or credentials are required for this task.
+The local skeleton and CI need no platform accounts or credentials. Completing
+the Task 2.1 configuration checklist requires access to the existing development
+Supabase project.
 
 ## Frontend
 
@@ -140,6 +144,80 @@ the pinned file in a clean virtual environment:
 ```
 
 Do not add machine-specific package-feed URLs or credentials to the pinned file.
+
+## Supabase configuration checklist (Task 2.1)
+
+The owner must collect values from the **existing development project** and keep
+them only in ignored local files or platform secret stores. Do not send
+credentials in chat, commit populated environment files, or use production
+services for development.
+
+From the repository root, create local copies only if they do not already exist:
+
+```powershell
+if (-not (Test-Path .\apps\web\.env.local)) {
+    Copy-Item .\apps\web\.env.example .\apps\web\.env.local
+}
+if (-not (Test-Path .\apps\api\.env)) {
+    Copy-Item .\apps\api\.env.example .\apps\api\.env
+}
+```
+
+Populate these files locally using the project's **Connect** dialog and API key
+settings:
+
+| Values | Where they belong / how to obtain them |
+| --- | --- |
+| `VITE_API_BASE_URL` | Frontend `.env.local`; keep `http://localhost:8000` for the local API. |
+| `VITE_SUPABASE_URL`, `SUPABASE_URL` | Frontend/backend respectively; use the same project's public URL. |
+| `VITE_SUPABASE_ANON_KEY` | Frontend only; public `anon` or publishable key, not a privileged key or user access token. The variable name follows the execution plan. |
+| `DATABASE_URL` | Backend only; copy the PostgreSQL URL from Connect, replace its password locally, URL-encode reserved password characters, and preserve required TLS options. Use a direct connection when reachable; session pooling can serve IPv4-only local networks. Do not select transaction pooling for the current migration setup. |
+| `SUPABASE_JWT_ISSUER` | Backend; the project's Auth issuer, typically `<project-url>/auth/v1`. |
+| `SUPABASE_JWKS_URL` | Backend; the project's signing-key endpoint, typically `<project-url>/auth/v1/.well-known/jwks.json`. This is a URL, not a signing secret. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Backend only; the project's privileged `service_role` or secret API key, under the execution plan's variable name. Never copy it into a `VITE_` variable. |
+| `ALLOWED_ORIGINS`, `LOG_LEVEL` | Backend; the template supplies explicit local origins as a JSON array and `INFO`. |
+
+Refer to Supabase's [API key guidance](https://supabase.com/docs/guides/api/api-keys)
+and [PostgreSQL connection guidance](https://supabase.com/docs/guides/database/connecting-to-postgres).
+Supabase is transitioning legacy keys to publishable/secret keys; preserve the
+template variable names, and never substitute a privileged backend key for the
+frontend public key. Key rotation or signing-key migration is not part of this
+task.
+
+Vite automatically loads the frontend `.env.local` on restart. The backend
+template is a configuration inventory: automatic dotenv loading, consumption of
+the new Supabase/origin/logging settings, Auth integration, and DB connectivity
+checks are not implemented here. The current API still reads `DATABASE_URL` from
+its process environment and uses `FLIGHT_INSTRUCTOR_CORS_ORIGINS` for overrides.
+Do not load the incomplete backend template; its database URL is deliberately
+empty. The existing health-only setup continues to work without these files.
+
+Both local files (and `.env.*` variants) are ignored by Git; only `.env.example`
+templates are intended to be tracked. Completion of the owner portion requires
+populating the ignored files or a platform secret store locally. It does not
+require creating users, changing Auth settings, or contacting the database yet.
+
+## Continuous integration
+
+[CI](.github/workflows/ci.yml) runs on pushes to `main`, pull requests, and manual
+dispatch from GitHub Actions. Two independent Ubuntu jobs use Python 3.13 and
+Node.js 24:
+
+- **Backend checks:** install the pinned dependencies and editable package, then
+  run Ruff formatting/lint checks, strict mypy, and all Pytest tests.
+- **Frontend checks:** install with `npm ci`, then run Prettier, ESLint,
+  TypeScript, Vitest, and the Vite production build.
+
+The backend job provisions a fresh PostgreSQL 17 service and sets
+`TEST_DATABASE_URL`, so migration and transaction tests run rather than being
+skipped. Its public test-only credentials are for that disposable CI database,
+not an application database. No Supabase project, repository secrets, or running
+application servers are required.
+
+The workflow has read-only repository permissions, pins actions to release
+commit SHAs, caches package downloads, and cancels superseded runs on the same
+ref. It does not deploy anything. Hosted checks become available after the
+workflow is committed and pushed; results appear in the repository's Actions tab.
 
 ## Existing POC fixtures
 
