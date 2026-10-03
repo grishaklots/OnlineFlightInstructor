@@ -1,0 +1,430 @@
+{
+  "formatVersion": 1,
+  "cases": [
+    {
+      "id": "empty-workspace",
+      "description": "No students or slots is a successful no-op.",
+      "input": {"version": 2, "viewMonth": "2026-10", "students": [], "slots": [], "preferences": []},
+      "steps": [{"operation": "compute", "expectedSlots": []}]
+    },
+    {
+      "id": "students-without-slots",
+      "description": "An empty month with a roster does not allocate anything.",
+      "input": {"version": 2, "viewMonth": "2026-10", "students": [{"id": "A", "name": "Alpha"}], "slots": [], "preferences": [{"studentId": "A", "slotIds": []}]},
+      "steps": [{"operation": "compute", "expectedSlots": []}]
+    },
+    {
+      "id": "slots-without-students",
+      "description": "Slots without a roster remain available.",
+      "input": {
+        "version": 2, "viewMonth": "2026-10", "students": [], "preferences": [],
+        "slots": [{"id": "x", "datetime": "2026-10-02T09:00", "endTime": "10:00", "runway": "TEST", "status": "available", "allocatedStudentId": null, "assignmentSource": null}]
+      },
+      "steps": [{"operation": "compute", "expectedSlots": [{"id": "x", "studentId": null, "source": null, "status": "available", "endTime": "10:00"}]}]
+    },
+    {
+      "id": "one-student-one-upvoted-slot",
+      "description": "A sole voter receives the slot; repeated computation is identical.",
+      "input": {
+        "version": 2, "viewMonth": "2026-10", "students": [{"id": "A", "name": "Alpha"}],
+        "preferences": [{"studentId": "A", "slotIds": ["x"]}],
+        "slots": [{"id": "x", "datetime": "2026-10-02T09:00", "endTime": "10:00", "runway": "TEST", "status": "requested", "allocatedStudentId": null, "assignmentSource": null}]
+      },
+      "steps": [
+        {"operation": "compute", "expectedSlots": [{"id": "x", "studentId": "A", "source": "algorithmic", "status": "allocated", "endTime": "10:00"}]},
+        {"operation": "compute", "expectedSlots": [{"id": "x", "studentId": "A", "source": "algorithmic", "status": "allocated", "endTime": "10:00"}]}
+      ]
+    },
+    {
+      "id": "one-student-without-upvote",
+      "description": "Automatic allocation does not invent demand.",
+      "input": {
+        "version": 2, "viewMonth": "2026-10", "students": [{"id": "A", "name": "Alpha"}],
+        "preferences": [{"studentId": "A", "slotIds": []}],
+        "slots": [{"id": "x", "datetime": "2026-10-02T09:00", "endTime": "10:00", "runway": "TEST", "status": "available", "allocatedStudentId": null, "assignmentSource": null}]
+      },
+      "steps": [{"operation": "compute", "expectedSlots": [{"id": "x", "studentId": null, "source": null, "status": "available", "endTime": "10:00"}]}]
+    },
+    {
+      "id": "competition-student-id-tie",
+      "description": "Non-locale ID order beats roster insertion order and student name: uppercase Z precedes lowercase a.",
+      "input": {
+        "version": 2, "viewMonth": "2026-10",
+        "students": [{"id": "a", "name": "Aaron"}, {"id": "Z", "name": "Zoe"}, {"id": "b", "name": "Beth"}],
+        "preferences": [{"studentId": "a", "slotIds": ["x"]}, {"studentId": "Z", "slotIds": ["x"]}, {"studentId": "b", "slotIds": ["x"]}],
+        "slots": [{"id": "x", "datetime": "2026-10-02T09:00", "endTime": "10:00", "runway": "TEST", "status": "requested", "allocatedStudentId": null, "assignmentSource": null}]
+      },
+      "steps": [{"operation": "compute", "expectedSlots": [{"id": "x", "studentId": "Z", "source": "algorithmic", "status": "allocated", "endTime": "10:00"}]}]
+    },
+    {
+      "id": "same-labels-regenerated-ids",
+      "description": "Same names/preferences as competition-student-id-tie but new fixed IDs make Aaron win. UI UUID regeneration can change tie outcomes.",
+      "input": {
+        "version": 2, "viewMonth": "2026-10",
+        "students": [{"id": "A", "name": "Aaron"}, {"id": "z", "name": "Zoe"}, {"id": "b", "name": "Beth"}],
+        "preferences": [{"studentId": "A", "slotIds": ["x"]}, {"studentId": "z", "slotIds": ["x"]}, {"studentId": "b", "slotIds": ["x"]}],
+        "slots": [{"id": "x", "datetime": "2026-10-02T09:00", "endTime": "10:00", "runway": "TEST", "status": "requested", "allocatedStudentId": null, "assignmentSource": null}]
+      },
+      "steps": [{"operation": "compute", "expectedSlots": [{"id": "x", "studentId": "A", "source": "algorithmic", "status": "allocated", "endTime": "10:00"}]}]
+    },
+    {
+      "id": "multiple-preferences-earliest-first-no-quota",
+      "description": "Input/preference order is reversed; earliest start wins over smaller slot ID. One student can receive every preferred slot.",
+      "input": {
+        "version": 2, "viewMonth": "2026-10", "students": [{"id": "A", "name": "Alpha"}],
+        "preferences": [{"studentId": "A", "slotIds": ["a", "z"]}],
+        "slots": [
+          {"id": "a", "datetime": "2026-10-02T11:00", "endTime": "12:00", "runway": "TEST", "status": "requested", "allocatedStudentId": null, "assignmentSource": null},
+          {"id": "z", "datetime": "2026-10-02T09:00", "endTime": "10:00", "runway": "TEST", "status": "requested", "allocatedStudentId": null, "assignmentSource": null}
+        ]
+      },
+      "steps": [{"operation": "compute", "expectedSlots": [
+        {"id": "a", "studentId": "A", "source": "algorithmic", "status": "allocated", "endTime": "12:00"},
+        {"id": "z", "studentId": "A", "source": "algorithmic", "status": "allocated", "endTime": "10:00"}
+      ]}]
+    },
+    {
+      "id": "chronology-before-slot-id-and-array-order",
+      "description": "A and B prefer both slots; A takes earlier z and B takes later a. Unlike the single-student case, the output distinguishes slot processing order.",
+      "input": {
+        "version": 2, "viewMonth": "2026-10", "students": [{"id": "A", "name": "Alpha"}, {"id": "B", "name": "Beta"}],
+        "preferences": [{"studentId": "A", "slotIds": ["a", "z"]}, {"studentId": "B", "slotIds": ["a", "z"]}],
+        "slots": [
+          {"id": "a", "datetime": "2026-10-02T11:00", "endTime": "12:00", "runway": "TEST", "status": "requested", "allocatedStudentId": null, "assignmentSource": null},
+          {"id": "z", "datetime": "2026-10-02T09:00", "endTime": "10:00", "runway": "TEST", "status": "requested", "allocatedStudentId": null, "assignmentSource": null}
+        ]
+      },
+      "steps": [{"operation": "compute", "expectedSlots": [
+        {"id": "a", "studentId": "B", "source": "algorithmic", "status": "allocated", "endTime": "12:00"},
+        {"id": "z", "studentId": "A", "source": "algorithmic", "status": "allocated", "endTime": "10:00"}
+      ]}]
+    },
+    {
+      "id": "same-time-slot-id-tie-no-overlap-check",
+      "description": "Equal start times use slot ID, not runway or insertion order. A takes a and B takes z.",
+      "input": {
+        "version": 2, "viewMonth": "2026-10", "students": [{"id": "B", "name": "Beta"}, {"id": "A", "name": "Alpha"}],
+        "preferences": [{"studentId": "B", "slotIds": ["z", "a"]}, {"studentId": "A", "slotIds": ["z", "a"]}],
+        "slots": [
+          {"id": "z", "datetime": "2026-10-02T09:00", "endTime": "10:00", "runway": "AAA", "status": "requested", "allocatedStudentId": null, "assignmentSource": null},
+          {"id": "a", "datetime": "2026-10-02T09:00", "endTime": "11:00", "runway": "ZZZ", "status": "requested", "allocatedStudentId": null, "assignmentSource": null}
+        ]
+      },
+      "steps": [{"operation": "compute", "expectedSlots": [
+        {"id": "z", "studentId": "B", "source": "algorithmic", "status": "allocated", "endTime": "10:00"},
+        {"id": "a", "studentId": "A", "source": "algorithmic", "status": "allocated", "endTime": "11:00"}
+      ]}]
+    },
+    {
+      "id": "fewer-total-monthly-upvotes",
+      "description": "B has fewer total preferences and receives x despite A's smaller ID.",
+      "input": {
+        "version": 2, "viewMonth": "2026-10", "students": [{"id": "A", "name": "Alpha"}, {"id": "B", "name": "Beta"}],
+        "preferences": [{"studentId": "A", "slotIds": ["x", "y"]}, {"studentId": "B", "slotIds": ["x"]}],
+        "slots": [
+          {"id": "x", "datetime": "2026-10-02T09:00", "endTime": "10:00", "runway": "TEST", "status": "requested", "allocatedStudentId": null, "assignmentSource": null},
+          {"id": "y", "datetime": "2026-10-02T10:00", "endTime": "11:00", "runway": "TEST", "status": "requested", "allocatedStudentId": null, "assignmentSource": null}
+        ]
+      },
+      "steps": [{"operation": "compute", "expectedSlots": [
+        {"id": "x", "studentId": "B", "source": "algorithmic", "status": "allocated", "endTime": "10:00"},
+        {"id": "y", "studentId": "A", "source": "algorithmic", "status": "allocated", "endTime": "11:00"}
+      ]}]
+    },
+    {
+      "id": "manual-count-priority-before-preferences",
+      "description": "A has one manual assignment and fewer upvotes; B has zero assignments and therefore takes x first.",
+      "input": {
+        "version": 2, "viewMonth": "2026-10", "students": [{"id": "A", "name": "Alpha"}, {"id": "B", "name": "Beta"}],
+        "preferences": [{"studentId": "A", "slotIds": ["x"]}, {"studentId": "B", "slotIds": ["x", "y"]}],
+        "slots": [
+          {"id": "m", "datetime": "2026-10-02T08:00", "endTime": "09:00", "runway": "TEST", "status": "allocated", "allocatedStudentId": "A", "assignmentSource": "manual"},
+          {"id": "x", "datetime": "2026-10-02T09:00", "endTime": "10:00", "runway": "TEST", "status": "requested", "allocatedStudentId": null, "assignmentSource": null},
+          {"id": "y", "datetime": "2026-10-02T10:00", "endTime": "11:00", "runway": "TEST", "status": "requested", "allocatedStudentId": null, "assignmentSource": null}
+        ]
+      },
+      "steps": [{"operation": "compute", "expectedSlots": [
+        {"id": "m", "studentId": "A", "source": "manual", "status": "allocated", "endTime": "09:00"},
+        {"id": "x", "studentId": "B", "source": "algorithmic", "status": "allocated", "endTime": "10:00"},
+        {"id": "y", "studentId": "B", "source": "algorithmic", "status": "allocated", "endTime": "11:00"}
+      ]}]
+    },
+    {
+      "id": "existing-automatic-counts-reset",
+      "description": "A's two old automatic assignments are not priority counters; recomputation gives x to A and y to B.",
+      "input": {
+        "version": 2, "viewMonth": "2026-10", "students": [{"id": "A", "name": "Alpha"}, {"id": "B", "name": "Beta"}],
+        "preferences": [{"studentId": "A", "slotIds": ["x", "y"]}, {"studentId": "B", "slotIds": ["x", "y"]}],
+        "slots": [
+          {"id": "x", "datetime": "2026-10-02T09:00", "endTime": "10:00", "runway": "TEST", "status": "allocated", "allocatedStudentId": "A", "assignmentSource": "algorithmic"},
+          {"id": "y", "datetime": "2026-10-02T10:00", "endTime": "11:00", "runway": "TEST", "status": "allocated", "allocatedStudentId": "A", "assignmentSource": "algorithmic"}
+        ]
+      },
+      "steps": [{"operation": "compute", "expectedSlots": [
+        {"id": "x", "studentId": "A", "source": "algorithmic", "status": "allocated", "endTime": "10:00"},
+        {"id": "y", "studentId": "B", "source": "algorithmic", "status": "allocated", "endTime": "11:00"}
+      ]}]
+    },
+    {
+      "id": "unequal-free-options-occupied-upvotes-count",
+      "description": "A and B have two total upvotes each, but B has only x free because m is manual to C. A's ID wins x anyway; remaining options are not the tie breaker.",
+      "input": {
+        "version": 2, "viewMonth": "2026-10", "students": [{"id": "A", "name": "Alpha"}, {"id": "B", "name": "Beta"}, {"id": "C", "name": "Gamma"}],
+        "preferences": [{"studentId": "A", "slotIds": ["x", "y"]}, {"studentId": "B", "slotIds": ["x", "m"]}, {"studentId": "C", "slotIds": ["m"]}],
+        "slots": [
+          {"id": "m", "datetime": "2026-10-02T08:00", "endTime": "09:00", "runway": "TEST", "status": "allocated", "allocatedStudentId": "C", "assignmentSource": "manual"},
+          {"id": "x", "datetime": "2026-10-02T09:00", "endTime": "10:00", "runway": "TEST", "status": "requested", "allocatedStudentId": null, "assignmentSource": null},
+          {"id": "y", "datetime": "2026-10-02T10:00", "endTime": "11:00", "runway": "TEST", "status": "requested", "allocatedStudentId": null, "assignmentSource": null}
+        ]
+      },
+      "steps": [{"operation": "compute", "expectedSlots": [
+        {"id": "m", "studentId": "C", "source": "manual", "status": "allocated", "endTime": "09:00"},
+        {"id": "x", "studentId": "A", "source": "algorithmic", "status": "allocated", "endTime": "10:00"},
+        {"id": "y", "studentId": "A", "source": "algorithmic", "status": "allocated", "endTime": "11:00"}
+      ]}]
+    },
+    {
+      "id": "remaining-options-change-during-run",
+      "description": "After A receives x, B and C lose an option. Fixed monthly totals still govern turns. Greedy output strands C despite a feasible one-each allocation.",
+      "input": {
+        "version": 2, "viewMonth": "2026-10", "students": [{"id": "A", "name": "Alpha"}, {"id": "B", "name": "Beta"}, {"id": "C", "name": "Gamma"}],
+        "preferences": [{"studentId": "A", "slotIds": ["x", "y"]}, {"studentId": "B", "slotIds": ["x", "z"]}, {"studentId": "C", "slotIds": ["x", "z"]}],
+        "slots": [
+          {"id": "x", "datetime": "2026-10-02T09:00", "endTime": "10:00", "runway": "TEST", "status": "requested", "allocatedStudentId": null, "assignmentSource": null},
+          {"id": "y", "datetime": "2026-10-02T10:00", "endTime": "11:00", "runway": "TEST", "status": "requested", "allocatedStudentId": null, "assignmentSource": null},
+          {"id": "z", "datetime": "2026-10-02T11:00", "endTime": "12:00", "runway": "TEST", "status": "requested", "allocatedStudentId": null, "assignmentSource": null}
+        ]
+      },
+      "steps": [{"operation": "compute", "expectedSlots": [
+        {"id": "x", "studentId": "A", "source": "algorithmic", "status": "allocated", "endTime": "10:00"},
+        {"id": "y", "studentId": "A", "source": "algorithmic", "status": "allocated", "endTime": "11:00"},
+        {"id": "z", "studentId": "B", "source": "algorithmic", "status": "allocated", "endTime": "12:00"}
+      ]}]
+    },
+    {
+      "id": "already-allocated-upvotes-still-count",
+      "description": "D/E take x/y first. A then has only z free and B has z/w free, but B's fewer total upvotes win z. Total counts do not shrink during the run.",
+      "input": {
+        "version": 2, "viewMonth": "2026-10",
+        "students": [{"id": "A", "name": "Alpha"}, {"id": "B", "name": "Beta"}, {"id": "D", "name": "Delta"}, {"id": "E", "name": "Echo"}],
+        "preferences": [{"studentId": "A", "slotIds": ["x", "y", "z"]}, {"studentId": "B", "slotIds": ["z", "w"]}, {"studentId": "D", "slotIds": ["x"]}, {"studentId": "E", "slotIds": ["y"]}],
+        "slots": [
+          {"id": "x", "datetime": "2026-10-02T09:00", "endTime": "10:00", "runway": "TEST", "status": "requested", "allocatedStudentId": null, "assignmentSource": null},
+          {"id": "y", "datetime": "2026-10-02T10:00", "endTime": "11:00", "runway": "TEST", "status": "requested", "allocatedStudentId": null, "assignmentSource": null},
+          {"id": "z", "datetime": "2026-10-02T11:00", "endTime": "12:00", "runway": "TEST", "status": "requested", "allocatedStudentId": null, "assignmentSource": null},
+          {"id": "w", "datetime": "2026-10-02T12:00", "endTime": "13:00", "runway": "TEST", "status": "requested", "allocatedStudentId": null, "assignmentSource": null}
+        ]
+      },
+      "steps": [{"operation": "compute", "expectedSlots": [
+        {"id": "x", "studentId": "D", "source": "algorithmic", "status": "allocated", "endTime": "10:00"},
+        {"id": "y", "studentId": "E", "source": "algorithmic", "status": "allocated", "endTime": "11:00"},
+        {"id": "z", "studentId": "B", "source": "algorithmic", "status": "allocated", "endTime": "12:00"},
+        {"id": "w", "studentId": "B", "source": "algorithmic", "status": "allocated", "endTime": "13:00"}
+      ]}]
+    },
+    {
+      "id": "assignment-counts-update-each-turn",
+      "description": "With identical preferences for three slots, the updated counts alternate A/B/A rather than assigning all slots to the ID winner.",
+      "input": {
+        "version": 2, "viewMonth": "2026-10", "students": [{"id": "A", "name": "Alpha"}, {"id": "B", "name": "Beta"}],
+        "preferences": [{"studentId": "A", "slotIds": ["x", "y", "z"]}, {"studentId": "B", "slotIds": ["x", "y", "z"]}],
+        "slots": [
+          {"id": "x", "datetime": "2026-10-02T09:00", "endTime": "10:00", "runway": "TEST", "status": "requested", "allocatedStudentId": null, "assignmentSource": null},
+          {"id": "y", "datetime": "2026-10-02T10:00", "endTime": "11:00", "runway": "TEST", "status": "requested", "allocatedStudentId": null, "assignmentSource": null},
+          {"id": "z", "datetime": "2026-10-02T11:00", "endTime": "12:00", "runway": "TEST", "status": "requested", "allocatedStudentId": null, "assignmentSource": null}
+        ]
+      },
+      "steps": [{"operation": "compute", "expectedSlots": [
+        {"id": "x", "studentId": "A", "source": "algorithmic", "status": "allocated", "endTime": "10:00"},
+        {"id": "y", "studentId": "B", "source": "algorithmic", "status": "allocated", "endTime": "11:00"},
+        {"id": "z", "studentId": "A", "source": "algorithmic", "status": "allocated", "endTime": "12:00"}
+      ]}]
+    },
+    {
+      "id": "one-student-simultaneous-slots",
+      "description": "One student receives two simultaneous slots on different runways; overlap feasibility is not checked.",
+      "input": {
+        "version": 2, "viewMonth": "2026-10", "students": [{"id": "A", "name": "Alpha"}],
+        "preferences": [{"studentId": "A", "slotIds": ["x", "y"]}],
+        "slots": [
+          {"id": "x", "datetime": "2026-10-02T09:00", "endTime": "10:00", "runway": "TEST / 01", "status": "requested", "allocatedStudentId": null, "assignmentSource": null},
+          {"id": "y", "datetime": "2026-10-02T09:00", "endTime": "11:00", "runway": "TEST / 02", "status": "requested", "allocatedStudentId": null, "assignmentSource": null}
+        ]
+      },
+      "steps": [{"operation": "compute", "expectedSlots": [
+        {"id": "x", "studentId": "A", "source": "algorithmic", "status": "allocated", "endTime": "10:00"},
+        {"id": "y", "studentId": "A", "source": "algorithmic", "status": "allocated", "endTime": "11:00"}
+      ]}]
+    },
+    {
+      "id": "manual-replacement-nonvoter-and-clear",
+      "description": "Force assignment replaces an automatic voter with a nonvoter, survives compute, then clearing retains the voter's preference and allows reallocation.",
+      "input": {
+        "version": 2, "viewMonth": "2026-10", "students": [{"id": "A", "name": "Alpha"}, {"id": "B", "name": "Beta"}],
+        "preferences": [{"studentId": "A", "slotIds": ["x"]}, {"studentId": "B", "slotIds": []}],
+        "slots": [{"id": "x", "datetime": "2026-10-02T09:00", "endTime": "10:00", "runway": "TEST", "status": "allocated", "allocatedStudentId": "A", "assignmentSource": "algorithmic"}]
+      },
+      "steps": [
+        {"operation": "transition", "action": {"type": "assign", "slotId": "x", "studentId": "B"}, "expectedSlots": [{"id": "x", "studentId": "B", "source": "manual", "status": "allocated", "endTime": "10:00"}]},
+        {"operation": "compute", "expectedSlots": [{"id": "x", "studentId": "B", "source": "manual", "status": "allocated", "endTime": "10:00"}]},
+        {"operation": "transition", "action": {"type": "clear", "slotId": "x"}, "expectedSlots": [{"id": "x", "studentId": null, "source": null, "status": "requested", "endTime": "10:00"}]},
+        {"operation": "compute", "expectedSlots": [{"id": "x", "studentId": "A", "source": "algorithmic", "status": "allocated", "endTime": "10:00"}]}
+      ]
+    },
+    {
+      "id": "clear-all-months-with-and-without-preferences",
+      "description": "All-month clearing releases manual and automatic assignments. Voted slots become requested; unvoted slots become available.",
+      "input": {
+        "version": 2, "viewMonth": "2026-10", "students": [{"id": "A", "name": "Alpha"}],
+        "preferences": [{"studentId": "A", "slotIds": ["x", "z"]}],
+        "slots": [
+          {"id": "x", "datetime": "2026-10-02T09:00", "endTime": "10:00", "runway": "TEST", "status": "allocated", "allocatedStudentId": "A", "assignmentSource": "algorithmic"},
+          {"id": "y", "datetime": "2026-10-02T10:00", "endTime": "11:00", "runway": "TEST", "status": "allocated", "allocatedStudentId": "A", "assignmentSource": "manual"},
+          {"id": "z", "datetime": "2026-11-02T09:00", "endTime": "10:00", "runway": "TEST", "status": "allocated", "allocatedStudentId": "A", "assignmentSource": "manual"}
+        ]
+      },
+      "steps": [{"operation": "transition", "action": {"type": "clearAssignments"}, "expectedSlots": [
+        {"id": "x", "studentId": null, "source": null, "status": "requested", "endTime": "10:00"},
+        {"id": "y", "studentId": null, "source": null, "status": "available", "endTime": "11:00"},
+        {"id": "z", "studentId": null, "source": null, "status": "requested", "endTime": "10:00"}
+      ]}]
+    },
+    {
+      "id": "single-clear-without-preference",
+      "description": "Clearing an unrequested manual assignment restores available status.",
+      "input": {
+        "version": 2, "viewMonth": "2026-10", "students": [{"id": "A", "name": "Alpha"}],
+        "preferences": [{"studentId": "A", "slotIds": []}],
+        "slots": [{"id": "x", "datetime": "2026-10-02T09:00", "endTime": "10:00", "runway": "TEST", "status": "allocated", "allocatedStudentId": "A", "assignmentSource": "manual"}]
+      },
+      "steps": [{"operation": "transition", "action": {"type": "clear", "slotId": "x"}, "expectedSlots": [{"id": "x", "studentId": null, "source": null, "status": "available", "endTime": "10:00"}]}]
+    },
+    {
+      "id": "remove-preference-retains-assignment-until-compute",
+      "description": "Removing A's upvote leaves A's automatic assignment visible; recomputation reallocates to B.",
+      "input": {
+        "version": 2, "viewMonth": "2026-10", "students": [{"id": "A", "name": "Alpha"}, {"id": "B", "name": "Beta"}],
+        "preferences": [{"studentId": "A", "slotIds": ["x"]}, {"studentId": "B", "slotIds": ["x"]}],
+        "slots": [{"id": "x", "datetime": "2026-10-02T09:00", "endTime": "10:00", "runway": "TEST", "status": "allocated", "allocatedStudentId": "A", "assignmentSource": "algorithmic"}]
+      },
+      "steps": [
+        {
+          "operation": "transition", "action": {"type": "vote", "slotId": "x", "studentId": "A"},
+          "expectedPreferences": [{"studentId": "A", "slotIds": []}, {"studentId": "B", "slotIds": ["x"]}],
+          "expectedSlots": [{"id": "x", "studentId": "A", "source": "algorithmic", "status": "allocated", "endTime": "10:00"}]
+        },
+        {"operation": "compute", "expectedSlots": [{"id": "x", "studentId": "B", "source": "algorithmic", "status": "allocated", "endTime": "10:00"}]}
+      ]
+    },
+    {
+      "id": "recompute-removes-unrequested-automatic-assignment",
+      "description": "An old automatic assignment without any remaining demand is cleared.",
+      "input": {
+        "version": 2, "viewMonth": "2026-10", "students": [{"id": "A", "name": "Alpha"}],
+        "preferences": [{"studentId": "A", "slotIds": []}],
+        "slots": [{"id": "x", "datetime": "2026-10-02T09:00", "endTime": "10:00", "runway": "TEST", "status": "allocated", "allocatedStudentId": "A", "assignmentSource": "algorithmic"}]
+      },
+      "steps": [{"operation": "compute", "expectedSlots": [{"id": "x", "studentId": null, "source": null, "status": "available", "endTime": "10:00"}]}]
+    },
+    {
+      "id": "other-month-counts-preferences-and-incomplete-slot-ignored",
+      "description": "A's November assignments/upvotes and incomplete slot do not influence October priority or prevent October compute; November remains intact.",
+      "input": {
+        "version": 2, "viewMonth": "2026-10", "students": [{"id": "A", "name": "Alpha"}, {"id": "B", "name": "Beta"}],
+        "preferences": [{"studentId": "A", "slotIds": ["x", "m", "n"]}, {"studentId": "B", "slotIds": ["x"]}],
+        "slots": [
+          {"id": "x", "datetime": "2026-10-02T09:00", "endTime": "10:00", "runway": "TEST", "status": "requested", "allocatedStudentId": null, "assignmentSource": null},
+          {"id": "m", "datetime": "2026-11-02T09:00", "endTime": null, "runway": "TEST", "status": "allocated", "allocatedStudentId": "A", "assignmentSource": "manual"},
+          {"id": "n", "datetime": "2026-11-02T10:00", "endTime": "11:00", "runway": "TEST", "status": "allocated", "allocatedStudentId": "A", "assignmentSource": "algorithmic"}
+        ]
+      },
+      "steps": [{"operation": "compute", "expectedSlots": [
+        {"id": "x", "studentId": "A", "source": "algorithmic", "status": "allocated", "endTime": "10:00"},
+        {"id": "m", "studentId": "A", "source": "manual", "status": "allocated", "endTime": null},
+        {"id": "n", "studentId": "A", "source": "algorithmic", "status": "allocated", "endTime": "11:00"}
+      ]}]
+    },
+    {
+      "id": "explicit-month-does-not-change-view",
+      "description": "The domain allocator accepts an explicit month different from viewMonth; only that month is recomputed.",
+      "input": {
+        "version": 2, "viewMonth": "2026-10", "students": [{"id": "A", "name": "Alpha"}],
+        "preferences": [{"studentId": "A", "slotIds": ["x", "y"]}],
+        "slots": [
+          {"id": "x", "datetime": "2026-10-02T09:00", "endTime": "10:00", "runway": "TEST", "status": "requested", "allocatedStudentId": null, "assignmentSource": null},
+          {"id": "y", "datetime": "2026-11-02T09:00", "endTime": "10:00", "runway": "TEST", "status": "requested", "allocatedStudentId": null, "assignmentSource": null}
+        ]
+      },
+      "steps": [{"operation": "compute", "month": "2026-11", "expectedSlots": [
+        {"id": "x", "studentId": null, "source": null, "status": "requested", "endTime": "10:00"},
+        {"id": "y", "studentId": "A", "source": "algorithmic", "status": "allocated", "endTime": "10:00"}
+      ]}]
+    },
+    {
+      "id": "incomplete-unrequested-slot-blocks-month",
+      "description": "Even an unrequested incomplete slot aborts compute without resetting the other automatic assignment.",
+      "input": {
+        "version": 2, "viewMonth": "2026-10", "students": [{"id": "A", "name": "Alpha"}],
+        "preferences": [{"studentId": "A", "slotIds": ["x"]}],
+        "slots": [
+          {"id": "x", "datetime": "2026-10-02T09:00", "endTime": "10:00", "runway": "TEST", "status": "allocated", "allocatedStudentId": "A", "assignmentSource": "algorithmic"},
+          {"id": "y", "datetime": "2026-10-02T23:30", "endTime": null, "runway": "TEST", "status": "available", "allocatedStudentId": null, "assignmentSource": null}
+        ]
+      },
+      "steps": [{"operation": "compute", "expectedError": "Set an end time for every slot in this month before computing distribution."}]
+    },
+    {
+      "id": "incomplete-manual-slot-blocks-month",
+      "description": "A migrated manual assignment with no end time is valid saved state but prevents computation.",
+      "input": {
+        "version": 2, "viewMonth": "2026-10", "students": [{"id": "A", "name": "Alpha"}],
+        "preferences": [{"studentId": "A", "slotIds": []}],
+        "slots": [{"id": "m", "datetime": "2026-10-02T23:30", "endTime": null, "runway": "TEST", "status": "allocated", "allocatedStudentId": "A", "assignmentSource": "manual"}]
+      },
+      "steps": [{"operation": "compute", "expectedError": "Set an end time for every slot in this month before computing distribution."}]
+    },
+    {
+      "id": "legacy-migration-repair-and-compute",
+      "description": "Version 1 gets one-hour end times where valid; late-night slot becomes null with its manual assignment/upvotes intact. Repair permits compute.",
+      "input": {
+        "version": 1, "viewMonth": "2026-10", "students": [{"id": "A", "name": "Alpha"}],
+        "preferences": [{"studentId": "A", "slotIds": ["x", "m"]}],
+        "slots": [
+          {"id": "x", "datetime": "2026-10-02T09:00", "runway": "TEST", "status": "requested", "allocatedStudentId": null, "assignmentSource": null},
+          {"id": "m", "datetime": "2026-10-02T23:30", "runway": "TEST", "status": "allocated", "allocatedStudentId": "A", "assignmentSource": "manual"}
+        ]
+      },
+      "steps": [
+        {"operation": "restore", "expectedVersion": 2, "expectedSlots": [
+          {"id": "x", "studentId": null, "source": null, "status": "requested", "endTime": "10:00"},
+          {"id": "m", "studentId": "A", "source": "manual", "status": "allocated", "endTime": null}
+        ]},
+        {"operation": "compute", "expectedError": "Set an end time for every slot in this month before computing distribution."},
+        {"operation": "transition", "action": {"type": "setEndTime", "slotId": "m", "endTime": "23:59"}, "expectedSlots": [
+          {"id": "x", "studentId": null, "source": null, "status": "requested", "endTime": "10:00"},
+          {"id": "m", "studentId": "A", "source": "manual", "status": "allocated", "endTime": "23:59"}
+        ]},
+        {"operation": "compute", "expectedSlots": [
+          {"id": "x", "studentId": "A", "source": "algorithmic", "status": "allocated", "endTime": "10:00"},
+          {"id": "m", "studentId": "A", "source": "manual", "status": "allocated", "endTime": "23:59"}
+        ]}
+      ]
+    },
+    {
+      "id": "incomplete-manual-assignment-rejected",
+      "description": "Force assignment cannot bypass missing end-time validation.",
+      "input": {
+        "version": 2, "viewMonth": "2026-10", "students": [{"id": "A", "name": "Alpha"}],
+        "preferences": [{"studentId": "A", "slotIds": []}],
+        "slots": [{"id": "x", "datetime": "2026-10-02T23:30", "endTime": null, "runway": "TEST", "status": "available", "allocatedStudentId": null, "assignmentSource": null}]
+      },
+      "steps": [{"operation": "transition", "action": {"type": "assign", "slotId": "x", "studentId": "A"}, "expectedError": "Set this slot's end time before assigning a student."}]
+    },
+    {
+      "id": "invalid-allocation-month",
+      "description": "Explicit invalid month fails without modifying input.",
+      "input": {"version": 2, "viewMonth": "2026-10", "students": [], "slots": [], "preferences": []},
+      "steps": [{"operation": "compute", "month": "2026-13", "expectedError": "Choose a valid allocation month."}]
+    }
+  ]
+}

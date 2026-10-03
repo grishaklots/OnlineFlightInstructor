@@ -163,7 +163,7 @@ Manual assignments can be to nonvoters and can exceed a student's preference cou
 
 Consider three chronological slots `x`, `y`, `z` and lexically ordered students `A`, `B`, `C`, all initially unassigned. A prefers x/y; B and C each prefer x/z. All have two monthly upvotes. The POC gives x to A, z to B, then y to A, leaving C unassigned. A feasible alternative gives y to A, x to B, z to C, one each.
 
-This outcome, retention of an algorithmic assignment after removing its upvote, and v1 late-night migration to `endTime: null` were confirmed by executing the unchanged domain script. The example demonstrates a limitation, not a new fixture or a proposed allocator change.
+This outcome, retention of an algorithmic assignment after removing its upvote, and v1 late-night migration to `endTime: null` were confirmed by executing the unchanged domain script. Task 0.3 now captures these and the other required allocation behaviors in [characterization fixtures](../tests/fixtures/poc-allocation.json), with a [format/coverage guide and verification command](../tests/fixtures/README.md). These characterize limitations without changing the allocator.
 
 ### Recalculation workflow
 
@@ -295,4 +295,4 @@ Do not carry over misleading labels uncritically: `AVAILABLE SLOTS` includes req
 | No history or recovery | No undo, allocation history, audit trail, or automatic backup. Deleting students/slots and replacing/resetting workspaces is destructive. Exports include student names and require appropriate handling; they are not encrypted. |
 | Browser/API assumptions | Requires `structuredClone`, `crypto.randomUUID`, native dialog methods, `File.text`, optional chaining, Blob/object URLs, and writable origin-scoped localStorage. `file:` storage behavior and secure-context API availability vary by browser. |
 
-These are observations and migration considerations, not fixes implemented by Task 0.2. The next fixture task must preserve the current monthly greedy policy, all-manual preservation, preference retention, and documented limitations. Hosted authentication, authoritative persistence, concurrency protection, and auditing are planned reliability/platform extensions, not changes to the allocation policy or interaction model.
+These are observations and migration considerations, not fixes implemented by Task 0.2. The Task 0.3 fixtures preserve the current monthly greedy policy, all-manual preservation, preference retention, and documented limitations. Hosted authentication, authoritative persistence, concurrency protection, and auditing are planned reliability/platform extensions, not changes to the allocation policy or interaction model.
