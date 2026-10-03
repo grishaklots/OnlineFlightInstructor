@@ -2,18 +2,29 @@ import { QueryClient, useQueryClient } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import AppProviders from './AppProviders'
 
-function renderRoute(path: string) {
-  return render(
+beforeEach(() => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue(new Response(JSON.stringify({ status: 'ok' }))),
+  )
+})
+
+async function renderRoute(path: string) {
+  const result = render(
     <AppProviders>
       <MemoryRouter initialEntries={[path]}>
         <App />
       </MemoryRouter>
     </AppProviders>,
   )
+  if (!path.startsWith('/student/')) {
+    await screen.findByText('API status: online')
+  }
+  return result
 }
 
 describe('placeholder routes', () => {
@@ -24,8 +35,8 @@ describe('placeholder routes', () => {
     ['/landing-slots', 'Landing slots'],
     ['/admin', 'Administration'],
     ['/student/example-token', 'Student portal'],
-  ])('renders %s on direct navigation', (path, title) => {
-    renderRoute(path)
+  ])('renders %s on direct navigation', async (path, title) => {
+    await renderRoute(path)
 
     expect(
       screen.getByRole('heading', { level: 1, name: title }),
@@ -33,16 +44,16 @@ describe('placeholder routes', () => {
     expect(screen.getByText(/This page is a placeholder/)).toBeInTheDocument()
   })
 
-  it('uses the student list as the initial route', () => {
-    renderRoute('/')
+  it('uses the student list as the initial route', async () => {
+    await renderRoute('/')
 
     expect(
       screen.getByRole('heading', { name: 'Students' }),
     ).toBeInTheDocument()
   })
 
-  it('shows a not-found page for unknown paths', () => {
-    renderRoute('/unknown')
+  it('shows a not-found page for unknown paths', async () => {
+    await renderRoute('/unknown')
 
     expect(
       screen.getByRole('heading', { name: 'Page not found' }),
@@ -51,7 +62,7 @@ describe('placeholder routes', () => {
 
   it('supports navigation without reloading the page', async () => {
     const user = userEvent.setup()
-    renderRoute('/students')
+    await renderRoute('/students')
 
     await user.click(screen.getByRole('link', { name: 'Landing slots' }))
 
@@ -60,8 +71,8 @@ describe('placeholder routes', () => {
     ).toBeInTheDocument()
   })
 
-  it('does not display student tokens or instructor navigation in the portal', () => {
-    renderRoute('/student/example-token')
+  it('does not display student tokens or instructor navigation in the portal', async () => {
+    await renderRoute('/student/example-token')
 
     expect(screen.queryByText('example-token')).not.toBeInTheDocument()
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument()

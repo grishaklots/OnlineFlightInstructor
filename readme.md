@@ -24,14 +24,14 @@ e2e/         Reserved for later end-to-end tests
 supabase/    Reserved for later Supabase configuration
 ```
 
-Task 1.1 adds a local application skeleton only. All six required frontend routes
+Task 1.1 adds the application skeleton; Task 1.2 connects React to FastAPI locally
+with an unauthenticated health check. All six required frontend routes
 are placeholders: `/login`, `/students`, `/students/:studentId`, `/landing-slots`,
 `/admin`, and `/student/:token`. `/` redirects to `/students`.
 
-No authentication, student-data operations, database, frontend/backend requests,
-health endpoint, CORS, CI, or deployment is implemented yet. The API exposes only
-FastAPI's generated documentation/OpenAPI routes. In particular, `/health` returns
-404; it belongs to Task 1.2.
+No authentication, student-data operations, database, CI, or deployment is
+implemented yet. `GET /health` returns `{"status":"ok"}` for the running API process;
+it does not check a database or external service.
 
 ## Prerequisites
 
@@ -53,9 +53,15 @@ npm ci
 npm run dev
 ```
 
-Use the URL printed by Vite (normally `http://localhost:5173`). Vite handles direct
-navigation to placeholder routes locally. The app uses React Router and a TanStack
-Query provider, but does not fetch API data yet.
+Open `http://localhost:5173`. Vite handles direct navigation to placeholder routes
+locally. Its port is fixed: if 5173 is occupied, startup fails rather than silently
+switching to an origin not allowed by the API.
+
+The instructor navigation includes an **API connection** panel. It starts with
+Checking, then shows Online when the browser receives a valid response from
+`http://localhost:8000/health`. If the API is stopped or the request fails, it shows
+Unavailable with an error. Start the backend in a second terminal and click
+**Check API** to retry.
 
 Run checks from `apps\web`:
 
@@ -83,9 +89,22 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Open `http://localhost:8000/docs` to inspect the empty API. The application factory
+Open `http://localhost:8000/health` to see the public JSON response, or
+`http://localhost:8000/docs` to inspect the endpoint. The application factory
 uses Pydantic Settings; `FLIGHT_INSTRUCTOR_APP_NAME` can override the API title.
 There are no required environment variables or `.env` files.
+
+Development CORS allows only `http://localhost:5173` and `http://127.0.0.1:5173`,
+GET requests, and no credentialed browser requests. The frontend calls the API
+directly across origins, not through a Vite proxy. CORS is a browser access rule,
+not authentication.
+
+For an alternate local API port, set `VITE_API_BASE_URL` in the frontend terminal
+before starting Vite (for example, `$env:VITE_API_BASE_URL = "http://localhost:8017"`).
+Restart Vite after changing it. For an alternate frontend origin, set
+`FLIGHT_INSTRUCTOR_CORS_ORIGINS` in the API terminal to a JSON array of explicit
+origins, then restart the API. Do not use wildcard origins. Visiting `/students`
+and seeing **API status: online** verifies the React-to-FastAPI browser call.
 
 Run checks from `apps\api`:
 

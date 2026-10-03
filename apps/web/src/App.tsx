@@ -6,6 +6,7 @@ import {
   Route,
   Routes,
 } from 'react-router-dom'
+import ApiHealth from './ApiHealth'
 
 function WorkspaceLayout() {
   return (
@@ -21,6 +22,7 @@ function WorkspaceLayout() {
           <NavLink to="/landing-slots">Landing slots</NavLink>
           <NavLink to="/admin">Administration</NavLink>
         </nav>
+        <ApiHealth />
       </header>
       <Outlet />
     </>

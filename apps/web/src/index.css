@@ -44,6 +44,28 @@ nav a.active {
   font-weight: 700;
 }
 
+.api-health {
+  margin-top: 1rem;
+}
+
+.api-health h2 {
+  font-size: 1rem;
+}
+
+.api-health button {
+  font: inherit;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+}
+
+.api-health button:disabled {
+  cursor: wait;
+}
+
+.api-health [role='alert'] {
+  color: #9e1b1b;
+}
+
 main {
   max-width: 60rem;
   margin: 0 auto;
