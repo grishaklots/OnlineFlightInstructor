@@ -2,7 +2,6 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, it, vi } from 'vitest'
 import ApiHealth from './ApiHealth'
-import AppProviders from './AppProviders'
 
 const fetchMock = vi.fn<typeof fetch>()
 
@@ -13,9 +12,9 @@ beforeEach(() => {
 
 function renderHealth() {
   render(
-    <AppProviders>
+    <QueryClientProvider client={new QueryClient()}>
       <ApiHealth />
-    </AppProviders>,
+    </QueryClientProvider>,
   )
 }
 
@@ -106,3 +105,4 @@ it('does not treat a non-JSON response as healthy', async () => {
     'API status: unavailable',
   )
 })
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'

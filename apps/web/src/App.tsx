@@ -7,6 +7,9 @@ import {
   Routes,
 } from 'react-router-dom'
 import ApiHealth from './ApiHealth'
+import AccountMenu from './auth/AccountMenu'
+import LoginPage from './auth/LoginPage'
+import RequireAuth from './auth/RequireAuth'
 
 function WorkspaceLayout() {
   return (
@@ -22,6 +25,7 @@ function WorkspaceLayout() {
           <NavLink to="/landing-slots">Landing slots</NavLink>
           <NavLink to="/admin">Administration</NavLink>
         </nav>
+        <AccountMenu />
         <ApiHealth />
       </header>
       <Outlet />
@@ -54,23 +58,25 @@ export default function App() {
     <Routes>
       <Route element={<WorkspaceLayout />}>
         <Route path="/" element={<Navigate to="/students" replace />} />
-        <Route path="/login" element={<PlaceholderPage title="Login" />} />
-        <Route
-          path="/students"
-          element={<PlaceholderPage title="Students" />}
-        />
-        <Route
-          path="/students/:studentId"
-          element={<PlaceholderPage title="Student details" />}
-        />
-        <Route
-          path="/landing-slots"
-          element={<PlaceholderPage title="Landing slots" />}
-        />
-        <Route
-          path="/admin"
-          element={<PlaceholderPage title="Administration" />}
-        />
+        <Route path="/login" element={<LoginPage />} />
+        <Route element={<RequireAuth />}>
+          <Route
+            path="/students"
+            element={<PlaceholderPage title="Students" />}
+          />
+          <Route
+            path="/students/:studentId"
+            element={<PlaceholderPage title="Student details" />}
+          />
+          <Route
+            path="/landing-slots"
+            element={<PlaceholderPage title="Landing slots" />}
+          />
+          <Route
+            path="/admin"
+            element={<PlaceholderPage title="Administration" />}
+          />
+        </Route>
         <Route path="*" element={<NotFoundPage />} />
       </Route>
       <Route

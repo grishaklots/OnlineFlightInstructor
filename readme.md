@@ -29,12 +29,14 @@ with an unauthenticated health check; Task 1.3 adds SQLAlchemy, psycopg, scoped
 sessions, explicit transactions, and an empty Alembic baseline.
 Task 1.4 adds GitHub Actions CI for both applications.
 Task 2.1 adds safe frontend/backend environment templates.
-All six required frontend routes
-are placeholders: `/login`, `/students`, `/students/:studentId`, `/landing-slots`,
-`/admin`, and `/student/:token`. `/` redirects to `/students`.
+Task 2.2 implements frontend Supabase email/password authentication.
+`/login` is functional; `/students`, `/students/:studentId`, `/landing-slots`,
+`/admin`, and `/student/:token` remain product placeholders.
+`/` redirects to `/students`; signed-out instructors are redirected to `/login`.
+The student portal stays public.
 
-No authentication, student-data operations, application tables, or deployment
-is implemented yet. `GET /health` returns `{"status":"ok"}` for the running API
+No backend JWT validation, student-data operations, application tables, or
+deployment is implemented yet. `GET /health` returns `{"status":"ok"}` for the running API
 process; it does not check a database or external service.
 
 ## Prerequisites
@@ -45,9 +47,9 @@ process; it does not check a database or external service.
 Run the following PowerShell commands from the repository root. Dependencies and
 build outputs are ignored by Git; `package-lock.json` and
 `apps\api\requirements-dev.txt` pin dependencies.
-The local skeleton and CI need no platform accounts or credentials. Completing
-the Task 2.1 configuration checklist requires access to the existing development
-Supabase project.
+The health check and CI need no platform accounts or credentials. The Task 2.1
+configuration checklist and Task 2.2 instructor login use the existing
+development Supabase project.
 
 ## Frontend
 
@@ -68,6 +70,14 @@ Checking, then shows Online when the browser receives a valid response from
 `http://localhost:8000/health`. If the API is stopped or the request fails, it shows
 Unavailable with an error. Start the backend in a second terminal and click
 **Check API** to retry.
+
+For instructor login, fill the public Supabase values in `apps\web\.env.local`
+using the checklist below, restart Vite, and open `/login`. Sign in with the
+development account you created in Supabase; reload to verify session restoration
+and use **Logout** to sign out. The SDK handles automatic token refresh.
+See the [frontend README](apps/web/README.md#instructor-authentication) for details.
+Rotate the test password previously committed in the execution plan; it is no
+longer included in the current plan but remains in Git history.
 
 Run checks from `apps\web`:
 
@@ -170,7 +180,7 @@ settings:
 | --- | --- |
 | `VITE_API_BASE_URL` | Frontend `.env.local`; keep `http://localhost:8000` for the local API. |
 | `VITE_SUPABASE_URL`, `SUPABASE_URL` | Frontend/backend respectively; use the same project's public URL. |
-| `VITE_SUPABASE_ANON_KEY` | Frontend only; public `anon` or publishable key, not a privileged key or user access token. The variable name follows the execution plan. |
+| `VITE_SUPABASE_ANON_KEY` | Frontend only; public `anon` or publishable key, not a privileged key or user access token. Task 2.2 also supports `VITE_SUPABASE_PUBLISHABLE_KEY` from the current Supabase React dialog; it takes precedence when both are nonempty. |
 | `DATABASE_URL` | Backend only; copy the PostgreSQL URL from Connect, replace its password locally, URL-encode reserved password characters, and preserve required TLS options. Use a direct connection when reachable; session pooling can serve IPv4-only local networks. Do not select transaction pooling for the current migration setup. |
 | `SUPABASE_JWT_ISSUER` | Backend; the project's Auth issuer, typically `<project-url>/auth/v1`. |
 | `SUPABASE_JWKS_URL` | Backend; the project's signing-key endpoint, typically `<project-url>/auth/v1/.well-known/jwks.json`. This is a URL, not a signing secret. |
@@ -184,9 +194,10 @@ template variable names, and never substitute a privileged backend key for the
 frontend public key. Key rotation or signing-key migration is not part of this
 task.
 
-Vite automatically loads the frontend `.env.local` on restart. The backend
+Vite automatically loads the frontend `.env.local` on restart; Task 2.2 consumes
+its public Supabase configuration. The backend
 template is a configuration inventory: automatic dotenv loading, consumption of
-the new Supabase/origin/logging settings, Auth integration, and DB connectivity
+the new Supabase/origin/logging settings, backend Auth integration, and DB connectivity
 checks are not implemented here. The current API still reads `DATABASE_URL` from
 its process environment and uses `FLIGHT_INSTRUCTOR_CORS_ORIGINS` for overrides.
 Do not load the incomplete backend template; its database URL is deliberately

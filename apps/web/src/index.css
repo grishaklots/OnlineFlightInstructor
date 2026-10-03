@@ -52,17 +52,27 @@ nav a.active {
   font-size: 1rem;
 }
 
-.api-health button {
+.login-form {
+  display: grid;
+  gap: 0.75rem;
+  max-width: 24rem;
+}
+
+.login-form input,
+button {
   font: inherit;
   padding: 0.5rem 1rem;
+}
+
+button {
   cursor: pointer;
 }
 
-.api-health button:disabled {
+button:disabled {
   cursor: wait;
 }
 
-.api-health [role='alert'] {
+[role='alert'] {
   color: #9e1b1b;
 }
 

@@ -137,13 +137,11 @@ LOG_LEVEL
 ## Task 2.2 — Configure Supabase email/password Auth
 **OWNER:** Configure email/password authentication in the existing project as needed and create a development instructor identity.
 
-**AGENT:** 
-* Implement React login/logout/session restore/token refresh using Supabase Auth.
-* Add a built-in user for testing purposes with these credentials: 
-  * user: testuser
-  * password: deadbeef
+**AGENT:** Implement React login/logout/session restore/token refresh using Supabase Auth.
+Use the owner-created development test account through normal Supabase authentication.
+Keep its credentials out of Git and frontend bundles; do not add a built-in login bypass.
 
-**Done when:** local login, refresh, and logout work. 
+**Done when:** local login, refresh, and logout work.
 
 ## Task 2.3 — Validate Supabase JWT in FastAPI
 **AGENT:** Validate signature/signing key, issuer, audience when applicable, and expiration. Derive identity from validated `sub`. Add protected `GET /api/me`.

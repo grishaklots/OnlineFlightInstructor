@@ -1,12 +1,20 @@
 import { QueryClient, useQueryClient } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import AppProviders from './AppProviders'
+import { getAuthClient } from './auth/client'
+import { createAuthMock, createTestSession } from './test/auth'
+
+vi.mock('./auth/client', () => ({ getAuthClient: vi.fn() }))
+
+let auth = createAuthMock()
 
 beforeEach(() => {
+  auth = createAuthMock(createTestSession())
+  vi.mocked(getAuthClient).mockReturnValue(auth.client)
   vi.stubGlobal(
     'fetch',
     vi.fn().mockResolvedValue(new Response(JSON.stringify({ status: 'ok' }))),
@@ -14,6 +22,9 @@ beforeEach(() => {
 })
 
 async function renderRoute(path: string) {
+  if (path.startsWith('/student/')) {
+    auth.client.getSession.mockReturnValue(new Promise(() => {}))
+  }
   const result = render(
     <AppProviders>
       <MemoryRouter initialEntries={[path]}>
@@ -29,7 +40,6 @@ async function renderRoute(path: string) {
 
 describe('placeholder routes', () => {
   it.each([
-    ['/login', 'Login'],
     ['/students', 'Students'],
     ['/students/example-student', 'Student details'],
     ['/landing-slots', 'Landing slots'],
@@ -79,18 +89,20 @@ describe('placeholder routes', () => {
   })
 })
 
-it('provides a TanStack Query client to the application', () => {
+it('provides a TanStack Query client to the application', async () => {
   let client: QueryClient | undefined
   function QueryProbe() {
     client = useQueryClient()
     return null
   }
 
-  render(
-    <AppProviders>
-      <QueryProbe />
-    </AppProviders>,
-  )
+  await act(async () => {
+    render(
+      <AppProviders>
+        <QueryProbe />
+      </AppProviders>,
+    )
+  })
 
   expect(client).toBeInstanceOf(QueryClient)
 })

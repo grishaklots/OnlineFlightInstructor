@@ -1,5 +1,7 @@
 type HealthResponse = { status: 'ok' }
 
+export const apiHealthQueryKey = ['api-health'] as const
+
 export async function getApiHealth(
   signal: AbortSignal,
 ): Promise<HealthResponse> {

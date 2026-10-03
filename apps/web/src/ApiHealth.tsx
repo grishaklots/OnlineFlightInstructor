@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
-import { getApiHealth } from './api/health'
+import { apiHealthQueryKey, getApiHealth } from './api/health'
 
 export default function ApiHealth() {
   const health = useQuery({
-    queryKey: ['api-health'],
+    queryKey: apiHealthQueryKey,
     queryFn: ({ signal }) => getApiHealth(signal),
     retry: false,
   })
