@@ -1,0 +1,63 @@
+:root {
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+  color: #172030;
+  background: #f6f8fa;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+a {
+  color: #1751a8;
+}
+
+:focus-visible {
+  outline: 3px solid #1751a8;
+  outline-offset: 4px;
+}
+
+.app-header {
+  padding: 1rem 2rem;
+  background: #fff;
+  border-bottom: 1px solid #ccd3dd;
+}
+
+.app-header p {
+  font-weight: 700;
+}
+
+nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+nav a.active {
+  font-weight: 700;
+}
+
+main {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.skip-link {
+  position: absolute;
+  top: -5rem;
+  left: 1rem;
+  padding: 0.5rem;
+  background: #fff;
+}
+
+.skip-link:focus {
+  top: 1rem;
+}
