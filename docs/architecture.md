@@ -1,6 +1,6 @@
 # Architecture decisions
 
-These decisions implement execution-plan Task 0.4. They describe the planned application, not infrastructure or application code already deployed.
+These decisions originated in execution-plan Task 0.4; Task 1.3 resolves the persistence driver/session choice. They describe the planned application, not infrastructure or application code already deployed.
 
 Requirements come from the [product brief](product-brief.md) and [execution plan](execution-plan.md). The [POC analysis](poc-analysis.md) and [characterization fixtures](../tests/fixtures/README.md) define the existing landing-slot behavior to preserve. `landing-slots.html` remains a standalone reference, not the production application.
 
@@ -32,7 +32,7 @@ The browser is an untrusted client. FastAPI owns application-data access, valida
 | Backend | Python with FastAPI. Explicit request/response schemas, reusable authorization dependencies, and application services keep HTTP handling separate from persistence and domain policy. A single backend is sufficient for the MVP; no microservices or allocation queue is required. |
 | Database | Supabase-hosted PostgreSQL in development and production. One relational source of truth supports ownership constraints, preferences, exclusive assignments, transactions, and concurrency checks. |
 | Instructor authentication | Supabase Auth for sign-in, session restoration, token refresh, and sign-out. The browser sends the access JWT to FastAPI; an Auth session alone does not authorize access to application records. |
-| Persistence | SQLAlchemy 2.x for database access and Alembic for version-controlled migrations. Requests use scoped sessions with explicit transaction boundaries and cleanup on success/failure; no global mutable session. Task 1.3 will document the sync/async driver/session choice before implementation. |
+| Persistence | Synchronous SQLAlchemy 2.x with psycopg 3 and Alembic migrations. Short MVP database operations do not justify async session/migration complexity; database-consuming FastAPI routes/dependencies use `def` and its thread pool. Requests use scoped sessions, explicit transactions, and cleanup on success/failure; no global mutable session. See the [backend lifecycle documentation](../apps/api/README.md#session-and-transaction-lifecycle). |
 | Frontend hosting | Vercel serves the Vite build. Configure SPA rewrites for direct navigation to nested routes. Build-time frontend variables are public configuration, never secrets. |
 | Backend hosting | Render hosts FastAPI as a web service. Configuration and credentials come from environment/secret stores; health checks and CORS are explicit. Migrations run through a controlled release process, not concurrently in every application instance. |
 | API style | HTTPS REST with JSON and explicit schemas. Instructor application endpoints are under `/api`; a narrowly scoped public student API uses separate authorization/response schemas. No GraphQL, direct application-table browser API, or realtime channel is needed for the MVP. |
@@ -118,4 +118,4 @@ React receives only public configuration such as API base URL, Supabase URL, and
 
 ## 9. Implementation limits for this task
 
-Task 0.4 creates this decision record only. No React/FastAPI scaffold, Python allocation engine, schema/migration, credential setup, dashboard configuration, or deployment is implemented here. Follow the numbered execution plan for those changes. Sync/async persistence choice, hosted timezone interpretation, and concrete student-token transport remain assigned to their respective implementation tasks rather than being implied by this document.
+Task 0.4 created this decision record only; Task 1.3 adds the synchronous persistence decision and empty migration baseline. Neither task implements application entity schemas, the Python allocator, credential setup, dashboard configuration, or deployment. Follow the numbered execution plan for those changes. Hosted timezone interpretation and concrete student-token transport remain assigned to their respective implementation tasks rather than being implied by this document.

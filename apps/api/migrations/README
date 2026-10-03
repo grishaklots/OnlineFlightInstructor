@@ -1,0 +1,8 @@
+PostgreSQL migrations for the Flight Instructor API.
+
+Set DATABASE_URL in the environment; no credentials belong in alembic.ini.
+env.py uses app.database.Base.metadata. Future model modules must be imported
+before autogeneration so their tables are registered with the shared metadata.
+
+The initial revision establishes history only, without application tables.
+See apps/api/README.md for configuration, apply/rollback commands, and tests.

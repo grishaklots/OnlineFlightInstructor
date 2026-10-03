@@ -25,13 +25,15 @@ supabase/    Reserved for later Supabase configuration
 ```
 
 Task 1.1 adds the application skeleton; Task 1.2 connects React to FastAPI locally
-with an unauthenticated health check. All six required frontend routes
+with an unauthenticated health check; Task 1.3 adds SQLAlchemy, psycopg, scoped
+sessions, explicit transactions, and an empty Alembic baseline.
+All six required frontend routes
 are placeholders: `/login`, `/students`, `/students/:studentId`, `/landing-slots`,
 `/admin`, and `/student/:token`. `/` redirects to `/students`.
 
-No authentication, student-data operations, database, CI, or deployment is
-implemented yet. `GET /health` returns `{"status":"ok"}` for the running API process;
-it does not check a database or external service.
+No authentication, student-data operations, application tables, CI, or deployment
+is implemented yet. `GET /health` returns `{"status":"ok"}` for the running API
+process; it does not check a database or external service.
 
 ## Prerequisites
 
@@ -92,7 +94,9 @@ python -m venv .venv
 Open `http://localhost:8000/health` to see the public JSON response, or
 `http://localhost:8000/docs` to inspect the endpoint. The application factory
 uses Pydantic Settings; `FLIGHT_INSTRUCTOR_APP_NAME` can override the API title.
-There are no required environment variables or `.env` files.
+There are no required environment variables or `.env` files for health.
+`DATABASE_URL` optionally configures the PostgreSQL engine and is required to run
+migrations; no database connection is opened by the health check.
 
 Development CORS allows only `http://localhost:5173` and `http://127.0.0.1:5173`,
 GET requests, and no credentialed browser requests. The frontend calls the API
@@ -106,6 +110,11 @@ Restart Vite after changing it. For an alternate frontend origin, set
 origins, then restart the API. Do not use wildcard origins. Visiting `/students`
 and seeing **API status: online** verifies the React-to-FastAPI browser call.
 
+For PostgreSQL configuration, the sync-session/transaction design, migration
+apply/rollback commands, and disposable-database integration tests, see the
+[backend README](apps/api/README.md). Database configuration is not needed to
+continue using the frontend/API health check.
+
 Run checks from `apps\api`:
 
 ```powershell
@@ -117,8 +126,9 @@ Run checks from `apps\api`:
 ```
 
 `.\.venv\Scripts\python.exe -m ruff format .` formats Python files. The build command
-produces a wheel and source distribution; there is no database build or migration
-step. On other operating systems use `.venv/bin/python` instead.
+produces a wheel and source distribution; it does not apply database migrations.
+Without `TEST_DATABASE_URL`, PostgreSQL integration tests are explicitly skipped.
+On other operating systems use `.venv/bin/python` instead.
 
 `pyproject.toml` declares runtime dependencies and the `dev` dependency group.
 When changing those declarations, use pip 25.1+ to install the groups and regenerate
