@@ -2,7 +2,14 @@ import pytest
 from fastapi.testclient import TestClient
 from pytest import MonkeyPatch
 
+from app.database import Database
 from app.main import create_app
+
+
+@pytest.fixture(autouse=True)
+def healthy_database(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", "postgresql://localhost:1/unused")
+    monkeypatch.setattr(Database, "check_connection", lambda _self: None)
 
 
 def test_application_starts_and_exposes_openapi() -> None:
@@ -23,12 +30,12 @@ def test_settings_are_used_by_application_factory(monkeypatch: MonkeyPatch) -> N
     assert application is not create_app()
 
 
-def test_health_is_public_and_returns_process_status() -> None:
+def test_health_is_public_and_returns_database_status() -> None:
     with TestClient(create_app()) as client:
         response = client.get("/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    assert response.json() == {"status": "ok", "database": "ok"}
     assert response.headers["content-type"] == "application/json"
 
 

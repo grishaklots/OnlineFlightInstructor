@@ -6,8 +6,8 @@ Pytest, Ruff, and strict mypy checks.
 point. Task 1.2 adds public `GET /health` and explicit local-development CORS.
 Task 1.3 adds the PostgreSQL persistence foundation and a reversible, empty
 migration baseline. Task 2.3 verifies Supabase access JWTs for `GET /api/me`.
-There are no application tables or product endpoints yet. Health remains a
-process check and does not connect to a database.
+Task 2.4 connects the configured PostgreSQL database and makes `/health` a
+database readiness check. There are no application tables or product endpoints yet.
 
 From this directory, create `.venv`, install `requirements-dev.txt`, install the
 editable package, and run Uvicorn using the commands in the repository README.
@@ -23,8 +23,9 @@ the frontend. Keep database passwords URL-encoded in `DATABASE_URL`.
 The API loads `apps\api\.env` on restart, with process environment variables taking
 precedence. Remove unused blank optional settings rather than loading the blank
 template. `ALLOWED_ORIGINS` sets the explicit CORS origins; the old
-`FLIGHT_INSTRUCTOR_CORS_ORIGINS` alias remains supported. `LOG_LEVEL` is reserved
-for later configuration work. Alembic still reads process environment only.
+`FLIGHT_INSTRUCTOR_CORS_ORIGINS` alias remains supported. `LOG_LEVEL` sets the
+application logger level (DEBUG/INFO/WARNING/ERROR/CRITICAL). Alembic uses the
+same ignored `.env` loader and process overrides.
 See the repository README for the owner configuration checklist.
 
 ## JWT verification
@@ -58,12 +59,35 @@ The public `/health` remains independent of JWT verification.
 
 ## PostgreSQL configuration and migrations
 
-Set `DATABASE_URL` in the terminal running the API or Alembic. This unprefixed
-variable is optional for the current application and required for
-migrations or any use of the database dependency. It accepts `postgresql://` or
+Set `DATABASE_URL` in ignored `apps\api\.env` or the process running the API or
+Alembic. It is required for successful health checks, migrations, and database
+operations. The process can start without it but reports not-ready health.
+It accepts `postgresql://` or
 `postgresql+psycopg://`; both use psycopg 3. Other databases/drivers are rejected.
 Use URL-encoded credentials and the PostgreSQL server's required TLS options.
-Actual values must stay out of Git and chat. The API loads `.env`; Alembic does not yet.
+Actual values must stay out of Git and chat. Both API and Alembic load `.env`.
+For Supabase use `sslmode=require` (or stricter certificate verification).
+If the direct endpoint is unreachable on an IPv4-only network, use the project's
+**Session Pooler** URI from Connect, including its `postgres.<project-ref>` user.
+Do not use transaction pooling for the current migration/session setup.
+
+### Database health contract
+
+Public `GET /health` performs only a read-only `SELECT 1`, not a migration or
+application-data query:
+
+| HTTP | Response | Meaning |
+| --- | --- | --- |
+| 200 | `{"status":"ok","database":"ok"}` | API can query configured PostgreSQL. |
+| 503 | `{"status":"error","database":"not_configured"}` | `DATABASE_URL` is absent. |
+| 503 | `{"status":"error","database":"unavailable"}` | Database connection/query failed. |
+
+Responses and logs omit credentials, hostnames, URLs, and driver diagnostics.
+Connection establishment and pool checkout each have a five-second timeout;
+the health query has a transaction-local five-second PostgreSQL statement timeout.
+The connection is returned and the temporary timeout rolls back on every outcome,
+without changing subsequent session settings. `/health` remains unauthenticated;
+`/api/me` remains a JWT-only identity probe and does not require a product schema.
 
 From `apps\api`, with a PostgreSQL database available, replace placeholders
 locally and run:
@@ -127,10 +151,12 @@ $env:TEST_DATABASE_URL = "postgresql+psycopg://<user>:<url-encoded-password>@<ho
 .\.venv\Scripts\python.exe -m pytest -m postgresql
 ```
 
-The suite refuses a database containing existing tables. It applies/downgrades/
+Unit tests do not load owner `.env` files. The PostgreSQL suite refuses a database
+containing existing tables. It applies/downgrades/
 reapplies migrations, checks committed and rolled-back writes, verifies recovery
 after a constraint violation, and confirms sessions return their connections on
-success and exceptions. Test-created tables are removed. The URL is distinct
+success and exceptions, real HTTP health checks, and health-timeout reset.
+Test-created tables are removed. The URL is distinct
 from `DATABASE_URL` to prevent accidentally testing against the application DB.
 
 See the [repository README](../../readme.md) for all checks and local setup.

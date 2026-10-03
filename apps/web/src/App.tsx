@@ -7,6 +7,7 @@ import {
   Routes,
 } from 'react-router-dom'
 import ApiHealth from './ApiHealth'
+import ApiIdentity from './ApiIdentity'
 import AccountMenu from './auth/AccountMenu'
 import LoginPage from './auth/LoginPage'
 import RequireAuth from './auth/RequireAuth'
@@ -27,6 +28,7 @@ function WorkspaceLayout() {
         </nav>
         <AccountMenu />
         <ApiHealth />
+        <ApiIdentity />
       </header>
       <Outlet />
     </>

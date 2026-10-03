@@ -1,13 +1,13 @@
-type HealthResponse = { status: 'ok' }
+import { apiUrl } from './client'
+
+type HealthResponse = { status: 'ok'; database: 'ok' }
 
 export const apiHealthQueryKey = ['api-health'] as const
 
 export async function getApiHealth(
   signal: AbortSignal,
 ): Promise<HealthResponse> {
-  const baseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
-  const url = new URL('/health', baseUrl)
-  const response = await fetch(url.toString(), { signal })
+  const response = await fetch(apiUrl('/health'), { signal })
 
   if (!response.ok) {
     throw new Error(`Health check failed with HTTP ${response.status}.`)
@@ -18,10 +18,12 @@ export async function getApiHealth(
     typeof body !== 'object' ||
     body === null ||
     !('status' in body) ||
-    body.status !== 'ok'
+    body.status !== 'ok' ||
+    !('database' in body) ||
+    body.database !== 'ok'
   ) {
     throw new Error('The API returned an unexpected health response.')
   }
 
-  return { status: 'ok' }
+  return { status: 'ok', database: 'ok' }
 }

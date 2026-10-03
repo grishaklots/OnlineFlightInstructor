@@ -347,7 +347,7 @@ def test_missing_auth_configuration_is_explicit(
         result = client.get(
             "/api/me", headers={"Authorization": f"Bearer {signed_token(private_key)}"}
         )
-        assert client.get("/health").json() == {"status": "ok"}
+        assert client.get("/health").status_code == 503
     assert result.status_code == 503
     jwks_http.assert_not_called()
 

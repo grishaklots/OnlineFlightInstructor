@@ -29,10 +29,13 @@ it('shows checking while the request is pending', () => {
 })
 
 it('calls the local API directly and shows online for a valid response', async () => {
-  fetchMock.mockResolvedValue(new Response(JSON.stringify({ status: 'ok' })))
+  fetchMock.mockResolvedValue(
+    new Response(JSON.stringify({ status: 'ok', database: 'ok' })),
+  )
   renderHealth()
 
   await screen.findByText('API status: online')
+  expect(screen.getByText('Database status: connected')).toBeInTheDocument()
   expect(fetchMock).toHaveBeenCalledWith('http://localhost:8000/health', {
     signal: expect.any(AbortSignal),
   })
@@ -42,7 +45,9 @@ it('calls the local API directly and shows online for a valid response', async (
 
 it('uses an explicitly configured API base URL', async () => {
   vi.stubEnv('VITE_API_BASE_URL', 'http://localhost:8017/')
-  fetchMock.mockResolvedValue(new Response(JSON.stringify({ status: 'ok' })))
+  fetchMock.mockResolvedValue(
+    new Response(JSON.stringify({ status: 'ok', database: 'ok' })),
+  )
   renderHealth()
 
   await screen.findByText('API status: online')
@@ -55,7 +60,7 @@ it('shows network errors and lets the user retry after starting the API', async 
   const user = userEvent.setup()
   fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'))
   fetchMock.mockResolvedValueOnce(
-    new Response(JSON.stringify({ status: 'ok' })),
+    new Response(JSON.stringify({ status: 'ok', database: 'ok' })),
   )
   renderHealth()
 
@@ -81,20 +86,38 @@ it('does not treat an HTTP failure as healthy', async () => {
   )
 })
 
-it.each([null, {}, { status: 'error' }, { status: 200 }])(
-  'rejects an unexpected successful-response body: %j',
-  async (body) => {
-    fetchMock.mockResolvedValue(new Response(JSON.stringify(body)))
-    renderHealth()
+it.each([
+  null,
+  {},
+  { status: 'error' },
+  { status: 200 },
+  { status: 'ok' },
+  { status: 'ok', database: 'unavailable' },
+])('rejects an unexpected successful-response body: %j', async (body) => {
+  fetchMock.mockResolvedValue(new Response(JSON.stringify(body)))
+  renderHealth()
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'unexpected health response',
-    )
-    expect(screen.getByRole('status')).toHaveTextContent(
-      'API status: unavailable',
-    )
-  },
-)
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'unexpected health response',
+  )
+
+  expect(screen.getByRole('status')).toHaveTextContent(
+    'API status: unavailable',
+  )
+})
+
+it('does not show a connected database for an unavailable health response', async () => {
+  fetchMock.mockResolvedValue(
+    new Response(JSON.stringify({ status: 'error', database: 'unavailable' }), {
+      status: 503,
+    }),
+  )
+  renderHealth()
+  expect(await screen.findByRole('alert')).toHaveTextContent('HTTP 503')
+  expect(
+    screen.queryByText('Database status: connected'),
+  ).not.toBeInTheDocument()
+})
 
 it('does not treat a non-JSON response as healthy', async () => {
   fetchMock.mockResolvedValue(new Response('<html>not the API</html>'))

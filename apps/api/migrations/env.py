@@ -3,14 +3,14 @@ from logging.config import fileConfig
 from alembic import context
 
 from app.database import Base, Database, parse_database_url
-from app.settings import Settings
+from app.settings import load_settings
 
 config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-settings = Settings()
+settings = load_settings()
 if settings.database_url is None:
     raise RuntimeError("Set DATABASE_URL before running migrations.")
 database_url = parse_database_url(settings.database_url.get_secret_value())

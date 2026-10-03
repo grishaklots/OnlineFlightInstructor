@@ -5,6 +5,7 @@ Task 1.2 adds an API connection panel that calls the
 local FastAPI health endpoint, with pending, success, error, and retry states.
 Task 2.2 implements email/password login, logout, session restoration, and SDK
 token refresh. Product-data pages remain placeholders.
+Task 2.4 adds authenticated `/api/me` verification and database-ready health.
 
 From this directory, run `npm ci` then `npm run dev`. Checks are `npm run lint`,
 `npm run format:check`, `npm run typecheck`, `npm test`, and `npm run build`.
@@ -37,9 +38,18 @@ query. Student-link routes remain outside the instructor login guard.
 
 These route guards are UX only, not server-side authorization. Session data
 returned by `getSession` is client state, not verified backend identity.
-Backend JWT validation and protected API calls belong to Task 2.3; database
-connectivity checks belong to Task 2.4. The current `/health` call remains public
-and carries no access token. No signup, password recovery, or role administration
+FastAPI verifies the access JWT with its trusted Supabase JWKS. The authenticated
+API panel sends the current access token only as an Authorization Bearer header
+to `/api/me`, checks the returned subject against the session, and displays
+**Backend identity: verified** or an explicit error with retry. Token refresh
+rechecks identity with the newest token; cache keys/data and UI never contain
+tokens. Account changes/logout clear private identity cache and cancel stale
+requests. A backend error is not a successful verification.
+
+The `/health` call remains public and carries no access token. Online now
+requires `{"status":"ok","database":"ok"}` and displays **Database status:
+connected**; missing/unreachable DB returns 503 and shows unavailable.
+No signup, password recovery, or role administration
 is implemented here.
 
 The development test password previously appeared in the committed execution
@@ -48,7 +58,8 @@ password in Supabase before using the account. Keep the replacement out of Git,
 chat, browser bundles, and logs.
 
 To verify with your real project, restart Vite, sign in, reload the page and check
-that the instructor workspace remains visible, then click **Logout** and verify
+that the instructor workspace, **Backend identity: verified**, and **Database
+status: connected** are visible, then click **Logout** and verify
 the login form returns. Automated tests use synthetic credentials and mocked
 Auth responses, never the owner's account or backend secrets.
 

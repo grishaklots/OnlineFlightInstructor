@@ -31,14 +31,16 @@ Task 1.4 adds GitHub Actions CI for both applications.
 Task 2.1 adds safe frontend/backend environment templates.
 Task 2.2 implements frontend Supabase email/password authentication.
 Task 2.3 adds trusted-JWKS JWT verification and protected `GET /api/me`.
+Task 2.4 adds Supabase PostgreSQL readiness and a signed-in API identity panel.
 `/login` is functional; `/students`, `/students/:studentId`, `/landing-slots`,
 `/admin`, and `/student/:token` remain product placeholders.
 `/` redirects to `/students`; signed-out instructors are redirected to `/login`.
 The student portal stays public.
 
 No student-data operations, application tables, or
-deployment is implemented yet. `GET /health` returns `{"status":"ok"}` for the running API
-process; it does not check a database or external service.
+deployment is implemented yet. Public `GET /health` returns
+`{"status":"ok","database":"ok"}` only when PostgreSQL is reachable; missing or
+failed database configuration returns sanitized 503 status.
 
 ## Prerequisites
 
@@ -48,9 +50,9 @@ process; it does not check a database or external service.
 Run the following PowerShell commands from the repository root. Dependencies and
 build outputs are ignored by Git; `package-lock.json` and
 `apps\api\requirements-dev.txt` pin dependencies.
-The health check and CI need no platform accounts or credentials. The Task 2.1
-configuration checklist and Task 2.2 instructor login use the existing
-development Supabase project.
+CI needs no platform accounts or credentials and uses disposable PostgreSQL.
+Local login/JWT verification and database health use the existing development
+Supabase project configured in ignored environment files.
 
 ## Frontend
 
@@ -71,11 +73,15 @@ Checking, then shows Online when the browser receives a valid response from
 `http://localhost:8000/health`. If the API is stopped or the request fails, it shows
 Unavailable with an error. Start the backend in a second terminal and click
 **Check API** to retry.
+Online also requires **Database status: connected**.
 
 For instructor login, fill the public Supabase values in `apps\web\.env.local`
 using the checklist below, restart Vite, and open `/login`. Sign in with the
 development account you created in Supabase; reload to verify session restoration
 and use **Logout** to sign out. The SDK handles automatic token refresh.
+The signed-in panel must show **Backend identity: verified**, confirming the
+access JWT reached FastAPI and passed backend verification. Tokens stay out of
+URLs, displayed identity data, and query cache keys.
 See the [frontend README](apps/web/README.md#instructor-authentication) for details.
 Rotate the test password previously committed in the execution plan; it is no
 longer included in the current plan but remains in Git history.
@@ -109,26 +115,28 @@ python -m venv .venv
 Open `http://localhost:8000/health` to see the public JSON response, or
 `http://localhost:8000/docs` to inspect the endpoint. The application factory
 uses Pydantic Settings; `FLIGHT_INSTRUCTOR_APP_NAME` can override the API title.
-There are no required environment variables or `.env` files for health.
-`DATABASE_URL` optionally configures the PostgreSQL engine and is required to run
-migrations; no database connection is opened by the health check.
+The API and Alembic load ignored `apps\api\.env`, with process settings taking
+precedence. `DATABASE_URL` is required for successful DB health/migrations;
+without it the API starts but `/health` returns 503 (`database:not_configured`).
+Health is a read-only connectivity check, not an automatic migration.
 
 Development CORS allows only `http://localhost:5173` and `http://127.0.0.1:5173`,
-GET requests, and no credentialed browser requests. The frontend calls the API
+GET requests and the Authorization header, without cookies/credentialed browser
+requests. The frontend calls the API
 directly across origins, not through a Vite proxy. CORS is a browser access rule,
 not authentication.
 
 For an alternate local API port, set `VITE_API_BASE_URL` in the frontend terminal
 before starting Vite (for example, `$env:VITE_API_BASE_URL = "http://localhost:8017"`).
 Restart Vite after changing it. For an alternate frontend origin, set
-`FLIGHT_INSTRUCTOR_CORS_ORIGINS` in the API terminal to a JSON array of explicit
+`ALLOWED_ORIGINS` in the API terminal to a JSON array of explicit
 origins, then restart the API. Do not use wildcard origins. Visiting `/students`
 and seeing **API status: online** verifies the React-to-FastAPI browser call.
 
 For PostgreSQL configuration, the sync-session/transaction design, migration
 apply/rollback commands, and disposable-database integration tests, see the
-[backend README](apps/api/README.md). Database configuration is not needed to
-continue using the frontend/API health check.
+[backend README](apps/api/README.md). Preserve the Supabase connection URI's TLS
+options. Use the Session Pooler if the direct endpoint is unavailable locally.
 
 Run checks from `apps\api`:
 
@@ -204,9 +212,10 @@ lines from the template. `ALLOWED_ORIGINS` supplies CORS origins, with
 `FLIGHT_INSTRUCTOR_CORS_ORIGINS` kept as a legacy alias. The protected `/api/me`
 checks ES256/RS256 user tokens and returns their validated subject UUID; no
 privileged API key is needed. See [backend JWT details](apps/api/README.md#jwt-verification).
-Database health checks and consumption of `LOG_LEVEL` remain later work.
-Alembic still reads `DATABASE_URL` from process environment only.
-The public health endpoint continues to work without Supabase configuration.
+`LOG_LEVEL` sets application logging; DB health uses the configured PostgreSQL
+URI without exposing connection details. Alembic uses the same dotenv loader,
+but migrations still run explicitly. Health is public, not Auth-protected;
+it reports 503 rather than claiming readiness when PostgreSQL is unavailable.
 
 Both local files (and `.env.*` variants) are ignored by Git; only `.env.example`
 templates are intended to be tracked. Completion of the owner portion requires

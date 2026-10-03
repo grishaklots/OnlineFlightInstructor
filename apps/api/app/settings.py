@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 
 from pydantic import AliasChoices, Field, HttpUrl, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -10,6 +11,9 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "Flight Instructor API"
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = Field(
+        default="INFO", validation_alias="LOG_LEVEL"
+    )
     database_url: SecretStr | None = Field(
         default=None, validation_alias="DATABASE_URL"
     )

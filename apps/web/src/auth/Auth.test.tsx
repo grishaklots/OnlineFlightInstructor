@@ -26,7 +26,18 @@ beforeEach(() => {
   vi.mocked(getAuthClient).mockReset().mockReturnValue(auth.client)
   vi.stubGlobal(
     'fetch',
-    vi.fn().mockResolvedValue(new Response(JSON.stringify({ status: 'ok' }))),
+    vi
+      .fn<typeof fetch>()
+      .mockImplementation(
+        async (input) =>
+          new Response(
+            JSON.stringify(
+              String(input).endsWith('/api/me')
+                ? { id: observedSession?.user.id ?? 'instructor-a' }
+                : { status: 'ok', database: 'ok' },
+            ),
+          ),
+      ),
   )
 })
 
@@ -151,6 +162,7 @@ it('logs out and clears cached data for the previous instructor', async () => {
   vi.mocked(getAuthClient).mockReturnValue(auth.client)
   renderApp('/students')
   await screen.findByRole('heading', { name: 'Students' })
+  await screen.findByText('Backend identity: verified')
   queryClient.setQueryData(['instructor-private'], 'old data')
   const user = userEvent.setup()
 
@@ -159,6 +171,7 @@ it('logs out and clears cached data for the previous instructor', async () => {
   await screen.findByLabelText('Email')
   expect(auth.client.signOut).toHaveBeenCalledOnce()
   expect(queryClient.getQueryData(['instructor-private'])).toBeUndefined()
+  expect(queryClient.getQueryData(['api-me', 'instructor-a'])).toBeUndefined()
   expect(observedSession).toBeNull()
 })
 
@@ -203,10 +216,12 @@ it('clears cached data on account switches and reacts to sign-out events', async
   vi.mocked(getAuthClient).mockReturnValue(auth.client)
   renderApp('/students')
   await screen.findByRole('heading', { name: 'Students' })
+  await screen.findByText('Backend identity: verified')
   queryClient.setQueryData(['instructor-private'], 'old data')
 
   act(() => auth.emit('SIGNED_IN', createTestSession('instructor-b')))
   expect(queryClient.getQueryData(['instructor-private'])).toBeUndefined()
+  expect(queryClient.getQueryData(['api-me', 'instructor-a'])).toBeUndefined()
   act(() => auth.emit('SIGNED_OUT', null))
 
   await screen.findByLabelText('Email')

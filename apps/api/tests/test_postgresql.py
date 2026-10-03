@@ -8,12 +8,16 @@ from alembic import command
 from alembic.config import Config
 from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
+from fastapi.testclient import TestClient
+from pydantic import SecretStr
 from pytest import MonkeyPatch
 from sqlalchemy import Column, Integer, MetaData, Table, func, inspect, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.pool import QueuePool
 
 from app.database import Database, transaction
+from app.main import create_app
+from app.settings import Settings
 
 pytestmark = pytest.mark.postgresql
 
@@ -51,6 +55,34 @@ def assert_connections_returned(database: Database) -> None:
     pool = database.engine.pool
     assert isinstance(pool, QueuePool)
     assert pool.checkedout() == 0
+
+
+def test_health_checks_real_postgresql_and_returns_connection(
+    database: Database,
+) -> None:
+    url = database.engine.url.render_as_string(hide_password=False)
+    application = create_app(Settings(database_url=SecretStr(url)))
+    with TestClient(application) as client:
+        for _ in range(3):
+            response = client.get("/health")
+            assert response.status_code == 200
+            assert response.json() == {"status": "ok", "database": "ok"}
+            api_database = application.state.database
+            assert isinstance(api_database, Database)
+            assert_connections_returned(api_database)
+
+
+def test_health_timeout_does_not_persist_on_reused_connection(
+    database: Database,
+) -> None:
+    with database.engine.connect() as connection:
+        before = connection.exec_driver_sql("SHOW statement_timeout").scalar_one()
+    database.check_connection()
+    assert_connections_returned(database)
+    with database.engine.connect() as connection:
+        assert (
+            connection.exec_driver_sql("SHOW statement_timeout").scalar_one() == before
+        )
 
 
 def test_migrations_upgrade_downgrade_and_reapply(

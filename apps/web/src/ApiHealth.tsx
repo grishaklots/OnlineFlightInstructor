@@ -19,6 +19,7 @@ export default function ApiHealth() {
             ? 'online'
             : 'unavailable'}
       </p>
+      {health.isSuccess && <p>Database status: connected</p>}
       {health.isError && (
         <p role="alert">Health check failed: {health.error.message}</p>
       )}

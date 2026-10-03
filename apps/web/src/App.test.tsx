@@ -17,7 +17,18 @@ beforeEach(() => {
   vi.mocked(getAuthClient).mockReturnValue(auth.client)
   vi.stubGlobal(
     'fetch',
-    vi.fn().mockResolvedValue(new Response(JSON.stringify({ status: 'ok' }))),
+    vi
+      .fn<typeof fetch>()
+      .mockImplementation(
+        async (input) =>
+          new Response(
+            JSON.stringify(
+              String(input).endsWith('/api/me')
+                ? { id: 'instructor-a' }
+                : { status: 'ok', database: 'ok' },
+            ),
+          ),
+      ),
   )
 })
 

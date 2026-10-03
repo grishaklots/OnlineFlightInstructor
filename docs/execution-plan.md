@@ -157,6 +157,13 @@ Instructor profiles/account-state authorization remain later schema work.
 ## Task 2.4 — Connect FastAPI to Supabase PostgreSQL
 **AGENT:** Configure DB access through environment settings. Extend health behavior to test DB connectivity without leaking credentials.
 
+Implementation: API/Alembic load ignored backend `.env` with process overrides.
+`/health` runs a read-only PostgreSQL check and returns database readiness
+(200) or sanitized missing/unavailable status (503), with scoped timeouts and
+connection cleanup. React verifies `/api/me` using the current access JWT and
+displays backend identity verification plus database connectivity. Product
+tables/profile authorization and hosted services remain later tasks.
+
 **Milestone:**
 ```text
 local React --> Supabase Auth --> JWT --> local FastAPI --> Supabase PostgreSQL
